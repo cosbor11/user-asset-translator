@@ -41,10 +41,8 @@ Cloud events and schedules are helpful because the have built in loggin features
 
  - **XML Data Provider**:
    This is a user or client system that posts xml payloads to our http endpoint or sftp folder. 
-<br/>
  - **Report Consumer**:
    This is a user or client system that downloads files from our sftp server
-<br/>
  - **SFTP Service**
     Only one server is needed. Clients can have separate inbox and outbox folders that only they have access to. Amazon has a managed service as part of their [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) services. You can setup an sftp inbox to point to a specific s3 buckets and sub folders. See: S3 Bucket/Cloud Filestore for more information. GCP does not have a managed sftp service, so we can just setup a simple linux sftp service using a community docker image and setup file listeners to immediatly move the files to a file store. We
 
@@ -55,25 +53,21 @@ Cloud events and schedules are helpful because the have built in loggin features
     > *The GCP solution* would require ssh-ing into the linux service and adding usernames and passwords for our client(s). We can this into a firebase user pool if need be.
     > *IP Whitelisting** should be done for both solution as an additional layer of security
     >*Firewall* configuration should to only allow ssh and ftp ports to be accessible 
-<br/>
  - **AWS Gateway/Cloud Endpoint**
     A Cloud Managed API Gateway the can be re-directed to any solution in the future. 
     One of the advantages of using a gateway is we can use a managed service for user management
-<br/> 
   - **Cognito/Firebase**  
     We can use `Cognito` or `Firebase` to onboard users into user pools, manages permissions, rotate and store credentials, as well as facilitate client self-serving password update.
 
     > **Authentication:** 
     > The AWS solution can be done with a cognito apiKey, that only the client is privy to
-    > The GCP solution can be done using Firebase credentials
-<br/> 
+    > The GCP solution can be done using Firebase credentials 
   -  **S3 Bucket/Cloud Filestore**  
     Before setting up the SFTP services will need create a file storage bucket. In our case we would setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  For multi-tenancy it would be a good idea to setup the folders with client username prefixes like this: `{client-name}/user-asset-inbox`. We can also set a time-to-live policy for these files. My suggestion is to only hold the files for 6 months (to reduce storage cost later on)
-<br/>
   -  **Lambdas/Cloud Functions** 
-    Lambdas and Cloud Functions are serverless compute process with minimal scope. 
+    Lambdas and Cloud Functions are serverless compute process with minimal scope that practiacally have limitless scalablily and limit the cost to the amount of executions you have. 
     Modern age tooling like AWS SAM makes it easy for us to specify a CloudFormation template to create and manage the necessary AWS Resources, Policies, Permissions and CloudWatch Events that are required to immediatly use the compute process. 
-    By default there is a 14 min timeout, but we can configure based on our usecase, Logging features come in the box, and we can test the services locally. My suggestion is to write these in nodejs or python (I prefer node), rather than Java, because of cold start issues.<br/>
+    By default there is a 14 min timeout, but we can configure based on our usecase, Logging features come in the box, and we can test the services locally. My suggestion is to write these in nodejs or python (I prefer node), rather than Java, because of cold start issues.
     *We will need 2 lambdas/cloud functions:* 
         1) `user-asset-event-processor`: Tasked with ...
         - receiving xml file content or payload and splitting the batches into single entries 
@@ -82,26 +76,23 @@ Cloud events and schedules are helpful because the have built in loggin features
         - assign identifiers (for logging and tracibiliy)
         - If the input was from s3, the original file is moved from `user-asset-inbox` to `user-asset-inbox/processed`, and if an error occured it is logged and sent to `user-asset-inbox/errors`.
         - putting the events onto Queue, for another lambda to process. 
-        <br/>
         2) `user-asset-report-generator`: Tasked with ...
         - receiving all json entries on queue 
         - calculating SUM(UserAssetAccount.amount) for all entries
         - if an error occurs, we should log the error messages and store the failures so we can later replay them. We should also put a redrive policy on the queue that will put the messages on an retry queue, so we can setup alerts and write a script to run replay the event payload. (this is helpful if there is a bug anywhere along the chain of handoffs)
         - lastly, the lambda will put the events on S3 (or in the case of GCP directly on the SFTP endpoint to be consumed)
-  <br/>
   -  **SQS/Cloud Pub Sub Queues and Topics** 
       Queues are great to use in this usecase because we can hold messages back and control the flow of user asset entries to either be consumed immediatly or on a scheduled cron job. We just need one queue for the `user-asset-events` (json) and another to store retry failures `user-asset-events-failures`.
-<br/>
   -  **CloudWatch Events & Schedulers /GoogleCloud Triggers & Schedulers**
     Both AWS and Google Cloud have scheduling services and event listeners. 
     These are needed to initiate the transfer of User Asset Files and Events from point-to-point. 
-    - Here are the transfer activities that need to be done:
-       - **File Store to user-asset-event-processor:**
-          - *AWS*: Cloud Watch Event (packaged with user-asset-event-processor SAM project) set to listen for S3 PutObject events and immediatly invoke the lambda
-          - *GCP*: The Cloud Function can be created with a Cloud Storage Create trigger to invoke the function with the file
-       - **Queue/Topic user-asset-report-generator:**
-          - *AWS*: Cloud Watch Schedule (packaged with user-asset-event-processor SAM project) set to run on a cron schedule (every few min, every hour, daily, etc)
-          - *GCP*: Google Cloud Scheduler can notify a topic to invoke the function to process the messages in a Pub/Sub queue or topic
+        - Here are the transfer activities that need to be done:
+            - **File Store ----> user-asset-event-processor:**
+                - *AWS*: Cloud Watch Event (packaged with user-asset-event-processor SAM project) set to listen for S3 PutObject events and immediatly invoke the lambda
+                - *GCP*: The Cloud Function can be created with a Cloud Storage Create trigger to invoke the function with the file
+            - **Queue/Topic -----> user-asset-report-generator:**
+                - *AWS*: Cloud Watch Schedule (packaged with user-asset-event-processor SAM project) set to run on a cron schedule (every few min, every hour, daily, etc)
+                - *GCP*: Google Cloud Scheduler can notify a topic to invoke the function to process the messages in a Pub/Sub queue or topic
 
 ## Sequence Diagram
  **SFTP**

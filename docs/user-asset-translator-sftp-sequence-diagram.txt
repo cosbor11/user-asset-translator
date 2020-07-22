@@ -1,0 +1,28 @@
+
+title User Asset Translator SFTP Sequence Diagram
+
+actor XML Provider
+participant SFTP
+participant S3
+control CloudWatch
+participant Lambda
+participant SQS
+actor Report Consumer
+
+
+XML Provider->SFTP: upload file
+SFTP<->S3: synchronized with \n /user-asset-inbox
+S3-->CloudWatch: s3 PutObject event fire 
+CloudWatch->Lambda: invokes\nasset-event-processor
+Lambda->Lambda:translate to\nreport format
+Lambda->SQS: publish to\nuser-asset-events Queue
+Lambda->S3:moves orig file to /user-asset-inbox/processed
+
+...2 minutes later...
+SQS-->CloudWatch:scheduled cron (2m)
+CloudWatch->Lambda:invoke\nuser-asset-report-generator
+Lambda->Lambda:calculate\nasset amount sum
+Lambda->Lambda:generate bulk report
+Lambda->S3:upload to /user-asset-outbox
+S3<->SFTP: synchronized with \n /user-asset-outbox
+Report Consumer<-SFTP: download

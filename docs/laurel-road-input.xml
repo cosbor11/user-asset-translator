@@ -1,0 +1,109 @@
+<user>
+
+
+  <userId>3562662382393</userId>
+
+
+  <assets>
+
+
+           <bankAccount>
+
+
+                       <accountNumber>123895769767</accountNumber>
+
+
+                       <amount>27576</amount>
+
+
+                       <description>
+
+
+                                   <bankAccountType>CHECKING</bankAccountType>
+
+
+                                   <bankName>Chase</bankName>
+
+
+                       </description>
+
+
+           </bankAccount>
+
+
+           <brokerageAccount>
+
+
+                       <accountNumber>5556876547</accountNumber>
+
+
+                       <amount>335464</amount>
+
+
+                       <description>
+
+
+                                   <percentStocks>50</percentStocks>
+
+
+                                   <percentBonds>30</percentBonds>
+
+
+                                   <percentOther>20</percentOther>
+
+
+                       </description>
+
+
+           </brokerageAccount>
+
+
+           <bankAccount>
+
+
+                       <accountNumber>123895769767</accountNumber>
+
+
+                       <amount>12546</amount>
+
+
+                       <description>
+
+
+                                   <bankAccountType>SAVINGS</bankAccountType>
+
+
+                                   <bankName>Citi</bankName>
+
+
+                       </description>
+
+
+          </bankAccount>
+
+
+           <retirementAccount>
+
+
+                       <accountNumber>88876758798</accountNumber>
+
+
+                       <amount>6615</amount>
+
+
+                       <description>
+
+
+                                   <retirementAccountType>401k</retirementAccountType>
+
+
+                       </description>
+
+
+           </retirementAccount>
+
+
+</assets>
+
+
+</user>

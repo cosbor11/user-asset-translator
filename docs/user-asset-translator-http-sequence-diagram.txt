@@ -1,0 +1,30 @@
+
+title User Asset Translator HTTP Sequence Diagram
+
+actor XML Provider
+
+participant API Gateway
+participant Cognito
+participant Lambda
+participant SQS
+control CloudWatch
+participant S3
+participant SFTP
+actor Report Consumer
+
+
+
+XML Provider->API Gateway: post xml to\n/user-asset-events
+API Gateway->Cognito: authenticate
+API Gateway->Lambda: invokes\nasset-event-processor
+Lambda->Lambda:translate to\nreport format
+Lambda->SQS: publish to\nuser-asset-events Queue
+
+...2 minutes later...
+SQS-->CloudWatch:scheduled cron (2m)
+CloudWatch->Lambda:invoke\nuser-asset-report-generator
+Lambda->Lambda:calculate\nasset amount sum
+Lambda->Lambda:generate bulk report
+Lambda->S3:upload to /user-asset-outbox
+S3<->SFTP: synchronized with \n /user-asset-outbox
+Report Consumer<-SFTP: download

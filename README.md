@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The purpose of this application is to process input from a Client that provides data in XML (either via SFTP or HTTP) and translated it to a report format for another client to consume over SFTP.
+The purpose of this application is to process input from a Client that provides data in XML (either via SFTP or HTTP) and translate it into report format for another client to consume over SFTP.
 
 
 ## Implementation Summary
@@ -66,7 +66,7 @@ Cloud events and schedules are helpful because the have built in loggin features
     > **Authentication:** 
     > The AWS solution can be done with a cognito apiKey, that only the client is privy to
     > The GCP solution can be done using Firebase credentials
-
+<br/> 
   -  **S3 Bucket/Cloud Filestore**  
     Before setting up the SFTP services will need create a file storage bucket. In our case we would setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  For multi-tenancy it would be a good idea to setup the folders with client username prefixes like this: `{client-name}/user-asset-inbox`. We can also set a time-to-live policy for these files. My suggestion is to only hold the files for 6 months (to reduce storage cost later on)
 <br/>
@@ -253,6 +253,9 @@ class AssetAllocation {
     }
 }
 ```
+
+## Report Generation Strategy
+I would create a mustache template and for each messsage, on queue validate all the necessary parts are there, then apply the deserialized payload object to the mustache template, and accumulate a running total(s) and have add that to the bottom section of the report.  
 
 ## Deployment
 

@@ -2,11 +2,11 @@
 
 ----
 ## Table of Contents
-1. [ Purpose ](##purpose)
-2. [ Implementation Summary ](##implementation-summary) 
+1. [ Purpose ](#purpose)
+2. [ Implementation Summary ](#implementation-summary) 
 3. [ Reasoning ](#reasoning)
-4. [ Technology Resources ](##technology-resources)
-5. [ Network Diagrams ](##network-diagrams)
+4. [ Technology Resources ](#technology-resources)
+5. [ Network Diagrams ](#network-diagrams)
 6. [ Sequence Diagrams ](#sequence-diagrams)
 7. [ Entities ](#entities)
 8. [ Validations ](#validations)

@@ -46,7 +46,7 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
  - **Report Consumer**:
    This is a user or client system that downloads files from our sftp server
  - **SFTP Service:**
-    Only one server is needed. Clients can have separate inbox and outbox folders that only they have access to. Amazon has a managed service as part of their [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) services. You can setup an sftp inbox to point to a specific s3 buckets and sub folders. See the S3 Bucket/Cloud Filestore section for more information. GCP does not have a managed sftp service, so we can just setup a med compute instance with a community docker linux image wit sftp service running ad a file listener to immediatly move the files from the instance to a file store.
+    Only one server is needed. Clients can have separate inbox and outbox folders that only they have access to. Amazon has a managed service as part of their [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) services. You can setup an sftp inbox to point to a specific s3 buckets and sub folders. See the S3 Bucket/Cloud Filestore section for more information. GCP does not have a managed sftp service, so we can just setup a medium-sized high compute instance with a community docker linux image with sftp service running ad a file listener to immediatly move the files from the instance to a file store.
 
     Note: For both solutions, we should setup Route 53 or DNS CNAME to give our clients a pretty url to use. 
 

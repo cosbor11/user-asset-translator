@@ -8,27 +8,61 @@ The purpose of this application is to process input from a client that provides 
 
 ## Implementation Summary
 
-This implementation uses AWS or GCP Serverless technologies. Essentially, when an xml message is received either:
-  (1) on an AWS Integration Family managed SFTP Service that is backed by a file storage bucked called `user-asset-inbox`, or 
-  (2) a post message sent to an API Gateway cloud endpoint.
+This implementation features AWS or GCP Serverless technologies. Essentially, when an xml message is received, it there are two entry points:
   
-The XML messages are sent to a Cloud Function or Lambda called `user-asset-event-processor` either by a cloud watch event listener that listens for S3 PutObject events, or in the http handling case, is invoked as an endpoint handler in the API Gateway. 
+  (1) A [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) mananged SFTP Service that is backed by a file storage bucked called `user-asset-inbox`. (or application based sftp server for the GPC case)
+  (2) An API Gateway cloud POST endpoint
+  
+The XML messages are sent to a Cloud Function (Lambda) called `user-asset-event-processor` either by a cloud watch event listener that listens for new files being added, or in the http handling case, is invoked as an endpoint handler in the API Gateway/Endpoint.
 
-The `user-asset-event-processor`'s duty is to immediatly split into single user-asset messages and map those messages to an internal object serialized json spec, validate, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them), then put them onto a message queue to be held for batch processsing. 
+The `user-asset-event-processor`' Function's duty is to immediatly split a file or payload into single user-asset messages and map those messages to an internal serialized object based on our json spec, validate them, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them). Finally, it will then put them onto a message queue to be held for batch processsing.
 
-A Cloud Scheduled Cron job is configurued to invoke a second cloud function or Lambda called `user-asset-report-generator` that consumes all messages on queue (we can easily configure a max amount to prevent the process from timing out), converts them to report format along with account total summary information, then the report is sent to the a file store `user-asset-outbox` or a sftp inbox location, which will immediatly make it available on the SFTP managed service for clients to consume.
+A Cloud Scheduled Cron job is configurued to invoke a second cloud function or Lambda called `user-asset-report-generator` that consumes all messages on queue (max 100k), converts them to report format along with caluculating the account total summary information, then the report is sent to the a file store `user-asset-outbox` or a sftp inbox location, which will immediatly make it available on the SFTP managed service for clients to consume.
+
+## Technology Resources
+
+- **SFTP**:
+    - AWS: [aws-transfer-family](https://aws.amazon.com/aws-transfer-family)
+    - GCP: [embedded ftpserver](https://mina.apache.org/ftpserver-project/embedding_ftpserver.html). Just need to add code to immediatly transfer to filesstore
+- **API Gateway**:
+    - AWS: [api-gateway](https://aws.amazon.com/api-gateway)
+    - GCP: [cloud-endpoints](https://cloud.google.com/endpoints)
+- **Managed Service for User Management and Authentication**:
+    - AWS: [cognito](https://aws.amazon.com/cognito/)
+    - GCP: [firebase-authentication](https://firebase.google.com/docs/auth)
+- **File Storage**:
+    - AWS: [S3 buckets](https://aws.amazon.com/s3/)
+    - GCP: [cloud-firestore](https://cloud.google.com/firestore)
+- **Message Queues & Topics**:
+    - AWS: [sqs queue](https://aws.amazon.com/sqs/)
+    - GCP: [pub/sub](https://cloud.google.com/pubsub/docs/overview)
+- **Logging & Monitoring**:
+    - AWS: [cloud watch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html)
+    - GCP: [cloud logging](https://cloud.google.com/logging)
+- **Events & Schedulers**:
+    - AWS: [cloud watch events](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/WhatIsCloudWatchEvents.html)
+    - GCP: [cloud scheduler](https://cloud.google.com/scheduler)
+- **Compute Services**:
+    - AWS: [lambdas](https://aws.amazon.com/lambda)
+    - GCP: [cloud functions](https://cloud.google.com/functions)
+- **DNS**: 
+    - AWS: [lambda](https://aws.amazon.com/route53)
+    - GCP: [cloud-dns](https://cloud.google.com/dns)
+- **Cloud Serverless Deployment**
+    - AWS: [CodeDeploy](https://aws.amazon.com/codedeploy)
+    - GCP: [deployment manager](https://cloud.google.com/deployment-manager)
 
 ## Reasoning
 
-Rather than creating application servers, reverse proxies, logging services, and a database for storing users and authentication, I decided to leverage Cloud Managed Services to do many processes like SFTP file transfer & storage (AWS SFTP Managed Service), authentication & user management and user data storage (AWS API Gateway + Congnito User Pool), etc. 
+Rather than creating application servers, reverse proxies, logging services, and a database for storing users and authentication, I decided to leverage Cloud Managed Services to do many of the same processes like SFTP file transfer & storage (AWS SFTP Managed Service), authentication & user management and user data storage (AWS API Gateway + Congnito User Pool), etc.
 
 Cloud Durable Messaging Queues let us collect messages and hold them until the batching interval is ready to generate new reports. 
 
 I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided peek throughput requirements (6k rpm), the full cost of this setup should be less that $60/mo. 
 
-There are two lambda/cloud functions total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload to s3 or a SFTP server. 
+There are two lambda/cloud functions total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload to s3 or a SFTP server.
 
-Cloud Events and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup Loggly or monitoring tools like Sensu, PagerDuty, Promethus, or New Relic). Also, at any point, any of technologies can be replaced and easily integrated with the existing lambdas and queue flow. For example if you wanted to replace the queue with a topic or kind of event stream.
+Cloud Events and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup Loggly or monitoring tools like Sensu, PagerDuty, Promethus, or New Relic). Also, at any point, any of technologies can be replaced and easily integrated with the existing lambdas and queue flow. For example if you wanted to replace the queue with a topic, event stream, or invocation source.
 
 ## Network Diagram(s)
  

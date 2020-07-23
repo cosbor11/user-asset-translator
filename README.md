@@ -16,7 +16,7 @@ The XML messages are sent to an AWS Lambda called `user-asset-event-processor` e
 
 The `user-asset-event-processor`'s duty is to immediatly split intosingle user asset messages and map those messages to and internal object serialized json format, validate, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them), then put them onto a message queue to be held for batch processsing. 
 
-A CloudWatchEvent Scheduled Cron job is configurued to invoke a second lambda that consumes all messages on queue (we can easily configure a max amount to prevent the process from timing out), converts them to report format along with account total summary information, then the report is sent to the a file store `user-asset-outbox` or sftp inbox location, which will immediatly make it available on the SFT managed service for clients to consume.
+A CloudWatchEvent Scheduled Cron job is configurued to invoke a second lambda called `user-asset-report-generator` that consumes all messages on queue (we can easily configure a max amount to prevent the process from timing out), converts them to report format along with account total summary information, then the report is sent to the a file store `user-asset-outbox` or sftp inbox location, which will immediatly make it available on the SFT managed service for clients to consume.
 
 ## Reasoning
 

@@ -65,14 +65,14 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
     > The GCP solution can be done using Firebase username/password credentials 
   -  **S3 Bucket/Cloud Filestore**  
     Before setting up the SFTP services will need to create a file store (s3 bucket). In our case we would setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  
-    For multi-tenancy it would be a good idea to setup the folders with client username prefixes like this: `{client-name}/user-asset-inbox`. 
-    We can also set a time-to-live policy for these files. My suggestion is to only hold the files for 6 months (to reduce storage cost later on)
+    For multi-tenant support, it would be a good idea to setup the folders with client name prefixes like this: `{client-name}/user-asset-inbox`. 
+    We can also set a time-to-live policy for these files.  The files will be deleted automatically after 6 months (to reduce storage costs)
   -  **Lambdas/Cloud Functions** 
     Lambdas and Cloud Functions are serverless compute process with minimal scope that practiacally have limitless scalablily and limit the cost to the amount of executions you have. 
     Modern age tooling like AWS SAM makes it easy for us to specify a CloudFormation template to create and manage the necessary AWS Resources, Policies, Permissions and CloudWatch Events that are required to immediatly use the compute process. 
     By default there is a 14 min timeout, but we can configure based on our usecase, Logging features come out-of-the-box, and we can test the services locally. My suggestion is to write these using nodejs (my preference) or python, rather than Java, because of cold start issues.
     These functions can be tested locally, and can be invoked locally against the qa/e2e test enviroments, if need be. 
-    *We will need 2 lambdas/cloud functions:* 
+    *We will need 2 lambdas/cloud functions:*
         1) `user-asset-event-processor`: Tasked with ...
         - receiving xml file content or payload and splitting the batches into single entries 
         - normalizing the data json format that represents our internal format

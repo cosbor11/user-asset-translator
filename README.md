@@ -106,9 +106,12 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
   **HTTPS**
    <img width="100%" src="./docs/user-asset-translator-http-sequence-diagram.svg" />
 
+> Note: Both the http and ftp flows converge onto the same lambda (as to reduce duplicate functionality)
+
 ## Entities
 
-Entity Diagram of Input. (I find it is best to always create a class structure that exactly matches the external systems' structure as well as the internal structure, then map the two together in code) 
+I find it is best to create a class structure that exactly matches the external systems' payload structure as well as a class structure matching our internal schema, then map the two together in code.
+Below are the External and External models. I added the databases data type definitions even though there is not requirement to store any data, its there just to get an idea of what the data should look like
 
 **External System Model (UML)**
 ```                                
@@ -165,7 +168,7 @@ class AssetDescription {
 +-----------------------+        0..n |       ASSET_ACCOUNTS           |         | -------------------------------------- | 
 |       USERS           | 1           | ------------------------------ |    +--|<| PK asset_account_id         VARCHAR(80)|  
 | ----------------------|             | PK asset_account_id VARCHAR(80)|-|-/     |    type                     VARCHAR(20)|                                 
-| PK user_id VARCHAR(80)|-|---------o<| FK user_id          VARCHAR(80)|         |    percent                  NUMBER(3,0)|                                
+| PK user_id VARCHAR(30)|-|---------o<| FK user_id          VARCHAR(80)|         |    percent                  NUMBER(3,0)|                                
 |    external_user_id   |             |    bank_name       VARCHAR(255)|         +----------------------------------------+
 +-----------------------+             |    account_number   VARCHAR(80)|         
                                       |    amount          NUMBER(10,2)|                         
@@ -286,7 +289,7 @@ class AssetAllocation {
         - return 400 Bad Request with error message: "Sum of Asset Account Account allocations is {SUM(account.allocations[i].percent)}. The sum should equal 100, for User {user.externalUserId} Account Number {account.accountNumber}"
 
 ## Report Generation Strategy
-I would create a mustache template and for each messsage on queue, validate it, then apply the deserialized payload object to the mustache template, all while accumulating the running total(s) for the account field or whatever fields we would like to have aggregations for in future. Finally we would add the totals at the bottom of the script.
+I would create a mustache template and for each messsage on queue, validate it, then apply the deserialized payload instances to the mustache template, all while accumulating the running total(s) for the account field or whatever fields we would like to have aggregations for in future. Finally we would add the totals at the bottom of the script.
 
 ## Deployment
 

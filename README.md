@@ -23,7 +23,7 @@ A Cloud Scheduled Cron job is configurued to invoke a second cloud function or L
 
 Rather than creating application servers, reverse proxies, logging services, and a database for storing users and authentication, I decided to leverage Cloud Managed Services to do many processes like SFTP file transfer & storage (AWS SFTP Managed Service), authentication & user management and user data storage (AWS API Gateway + Congnito User Pool), etc. 
 
-Cloud Durable Messaging Queues let us collect messages and hold them until the batching interval is ready to generate new report of batches. 
+Cloud Durable Messaging Queues let us collect messages and hold them until the batching interval is ready to generate new reports. 
 
 I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided through put requirements, the full cost of this setup should be less that $60/mo. 
 

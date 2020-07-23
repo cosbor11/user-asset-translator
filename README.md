@@ -142,21 +142,22 @@ Below are the External and Internal Normalized models. I added the databases dat
 
 ```
 class User {
-	private String userId
-	private AssetProfile[] assets
+    String userId
+    AssetProfile[] assets
 }
 
 class AssetAccount {
     String type
-	String accountNumber
-	Double amount
+    String accountNumber
+    Double amount
     AssetDescription description
 }
 
 class AssetDescription {
-	String accountNumber
+    String accountNumber
     String bankAccountType
-    String retirementAccountTypes
+    String retirementAccountType
+    String bankName
     int percentStocks
     int percentBonds
     int percentOther

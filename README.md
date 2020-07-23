@@ -73,7 +73,7 @@ Cloud Event and Schedulers are helpful because the have built in logging and ale
         1) `user-asset-event-processor`: Tasked with ...
         - receiving xml file content or payload and splitting the batches into single entries 
         - normalizing the data json format that represents our internal format
-        - validating against the normalized form
+        - validating against the original form and the normalized form
         - assign identifiers (for logging and tracibiliy)
         - If the input was from s3, the original file is moved from `user-asset-inbox` to `user-asset-inbox/processed`, and if an error occured it is logged and sent to `user-asset-inbox/errors`.
         - putting the events onto Queue, for another lambda to process. 
@@ -164,7 +164,7 @@ class AssetDescription {
 | PK user_id VARCHAR(80)|-|---------o<| FK user_id          VARCHAR(80)|         |    percent                  NUMBER(3,0)|                                
 |    external_user_id   |             |    bank_name       VARCHAR(255)|         +----------------------------------------+
 +-----------------------+             |    account_number   VARCHAR(80)|         
-									  |    amount          NUMBER(10,2)|                                              
+                                      |    amount          NUMBER(10,2)|                         
                                       |    account_type     VARCHAR(20)|         
                                       |    tax_code          VARCHAR(4)|         
                                       +--------------------------------+ 
@@ -175,23 +175,23 @@ class AssetDescription {
 ```
 class User {
 	private String userId
-    private String externalUserId
+	private String externalUserId
 	private AssetAccount[] assetAccounts
 }
 
 class AssetAccount {
-    String accountAccountId
+	String accountAccountId
 	String accountNumber
 	Double amount
-    AccountTypeEnum accountType
-    TaxCodeEnum taxCode
-    AssetAccountAllocations[] allocations
+	AccountTypeEnum accountType
+	TaxCodeEnum taxCode
+	AssetAccountAllocations[] allocations
 }
 
 class AssetAllocation {
 	String assetAccountId
 	AssetAllocationTypeEnum type
-    int percent
+	int percent
 }
 ```
 
@@ -248,32 +248,38 @@ class AssetAllocation {
 
 ## Validations
 
-  - User
-    - externalUserId should be present
+  - **User**
+    - *externalUserId* should be present
         - return status code 400 (Bad Request) with error message: "Missing User ID"
-    - externalUserId should match format {USER_ID_REGEX}
- - AssetAccount
-    - accountNumber should be present
+    - *externalUserId* should match format {USER_ID_REGEX}
+ - **AssetAccount**
+    - *accountNumber* should be present
         - return status code 400 (Bad Request) with error message:  "Missing Account Type for User {account.userId}"
-    - accountType should be present
+    - *accountType* should be present
         - return status code 400 (Bad Request) with error message:  "Missing Asset Account type for User {user.externalUserId} Account Number {account.accountNumber}"
-    - accountType should match cardinality
+    - *accountType* should match cardinality
         - return 400 Bad Request with error message: "Asset Account Bank Account Type is invalid value. '{account.accountType}' is unknown, for User {user.externalUserId} Account Number {account.accountNumber}"
-    - amount should be present
+    - *amount* should be present
         - return status code 400 (Bad Request) with error message:  "Missing Asset Account Amount for User {user.externalUserId} Account Number {account.accountNumber}"
-    - taxCode should be present
+    - *taxCode* should be present
         - return status code 400 (Bad Request) with error message:  "Missing Asset Account Tax Code for User {user.externalUserId} Account Number {account.accountNumber}"
-    - amount format
+    - *amount* format
         - return status code 400 (Bad Request) with error message: " Asset Account Amount is invalid currency format (should be rounded to the nearest dollar) for User {user.externalUserId} Account Number {account.accountNumber}"
-    - taxCode should match cardinality
+    - *taxCode* should match cardinality
         - return 400 Bad Request with error message: "Asset Account Tax Code is invalid value. '{account.taxCode}' is unknown, for User {user.externalUserId} Account Number {account.accountNumber}"
-     - bankName should match cardinality
+    - *bankName* should match cardinality
         - return 400 Bad Request with error message: "Asset Account Bank Name is invalid value. '{account.bankName}' is unknown, for User {user.externalUserId} Account Number {account.accountNumber}"
-- AssetAllocation
-    - allocations should be present when accountType is BROKERAGE
+    - *allocations* should be present when accountType is BROKERAGE
         - return 400 Bad Request with error message: "Asset Account Account allocations are missing. for User {user.externalUserId} Account Number {account.accountNumber}" 
-    - allocations sum when accountType is BROKERAGE should be 100
-        - return 400 Bad Request with error message: "Sum of Asset Account Account allocations is {SUM(account.allocations[i].pecent)}. The sum should equal 100, for User {user.externalUserId} Account Number {account.accountNumber}"
+- **AssetAllocation**
+    - *percent* sum when accountType is BROKERAGE should be 100
+        - return status code 400 (Bad Request) with error message:  "Missing Asset Allocation Percent for Type {account.allocations[i].type}, User {user.externalUserId} Account Number {account.accountNumber}"
+    - *type* should be present
+        - return status code 400 (Bad Request) with error message:  "Missing Asset Allocation Type for User {user.externalUserId} Account Number {account.accountNumber}"
+    - *type* should match cardinality
+        - "Asset Account Allocation Type is invalid value. '{account.allocations[i].type}' is unknown, for User {user.externalUserId} Account Number {account.accountNumber}"
+    - *percent* sum when accountType is BROKERAGE should be 100
+        - return 400 Bad Request with error message: "Sum of Asset Account Account allocations is {SUM(account.allocations[i].percent)}. The sum should equal 100, for User {user.externalUserId} Account Number {account.accountNumber}"
 
 ## Report Generation Strategy
 I would create a mustache template and for each messsage on queue, validate it, then apply the deserialized payload object to the mustache template, all while accumulating the running total(s) for the account field or whatever fields we would like to have aggregations for in future. Finally we would add the totals at the bottom of the script.

@@ -115,51 +115,51 @@ Below are the External and Internal Normalized models. I added the databases dat
 
 **External System Model (UML)**
 ```                                
-                                                                                       +-------------------------------+                                                     
-                                        +---------------------------+             0..n |       AssetAccount            |                
-+--------------------+             0..1 |   UserAssetProfie         |                  | ------------------------------|     
-|       User         | 1                | ------------------------- |                  | PK accountNumber      (string)|              
-| ------------------ |                  | PK assetProfileId (string)|-|--------------o<| FK assetProfileId     (string)|               
-| PK userId  (string)|-|---------------o| FK userId         (string)|           +----|-| FK assetDescriptionId (string)|
-|                    |                  |                           |           |      |     amount (decimal )         |  
-+--------------------+                  |                           |           |     1|                               |         
-                                        +---------------------------+           |      +-------------------------------+
-                                                                                |      
-                                                                                |
-                                                                                |      +----------------------------------+ 
-                                                                                | 0..1 |       AssetDescription           | 
-                                                                                |      | -------------------------------- | 
-                                                                                +----|<| PK assetDescriptionId    (string)| 
-                                                                                       |    bankAccountType       (string)| * cardinality = CHECKING|SAVINGS
-                                                                                       |    retirementAccountType (string)| * cardinality = 401k | IRA
-                                                                                       |    bankName              (string)| 
-                                                                                       |    stockPercent          (number)| 
-                                                                                       |    bondsPercent          (number)| 
-                                                                                       |    otherPercent          (number)| 
-                                                                                       +----------------------------------+
+                                                +-------------------------------+                                                     
+ +---------------------------+             1..n |       AssetAccount            |                
+ |   UserAsset               |                  | ------------------------------|     
+ | ------------------------- |                  | PK accountNumber      (string)|              
+ | FK userId         (string)|-|--------------|<| FK userId             (string)|               
+ |                           |           +----|-| FK assetDescriptionId (string)|
+ |                           |           |      |     amount (decimal )         |  
+ |                           |           |     1|     type              (string)|         
+ +---------------------------+           |      +-------------------------------+
+                                         |      
+                                         |
+                                         |      +----------------------------------+ 
+                                         | 1..1 |       AssetDescription           | 
+                                         |      | -------------------------------- | 
+                                         +----|-| PK assetDescriptionId    (string)| 
+                                                |    bankAccountType       (string)| * cardinality = CHECKING|SAVINGS
+                                                |    retirementAccountType (string)| * cardinality = 401k | IRA
+                                                |    bankName              (string)| 
+                                                |    percentStocks         (number)| 
+                                                |    percentBonds          (number)| 
+                                                |    percentOther          (number)| 
+                                                +----------------------------------+
 ```
 **External System Class Structure**
 
 ```
 class User {
 	private String userId
-	private AssetProfile asset
-}
-
-class UserAssets {
-	AssetAccount[] bankAccount
-	AssetAccount brokerageAccount
-	AssetAccount retirementAccount
+	private AssetProfile[] assets
 }
 
 class AssetAccount {
+    String type
 	String accountNumber
-	Double amount 
+	Double amount
+    AssetDescription description
 }
 
 class AssetDescription {
 	String accountNumber
-	Double amount
+    String bankAccountType
+    String retirementAccountTypes
+    int percentStocks
+    int percentBonds
+    int percentOther
 }
 ```
 
@@ -167,8 +167,8 @@ class AssetDescription {
 ```
                                                                                  +----------------------------------------+   
                                       +--------------------------------+    0..n |      ASSET_ACCOUNT_ALLOCATIONS         |  
-+-----------------------+        0..n |       ASSET_ACCOUNTS           |         | -------------------------------------- | 
-|       USERS           | 1           | ------------------------------ |    +--|<| PK asset_account_id         VARCHAR(80)|  
++-----------------------+        1..n |       ASSET_ACCOUNTS           |         | -------------------------------------- | 
+|       USERS           | 1           | ------------------------------ |    +--o<| PK asset_account_id         VARCHAR(80)|  
 | ----------------------|             | PK asset_account_id VARCHAR(80)|-|-/     |    type                     VARCHAR(20)|                                 
 | PK user_id VARCHAR(30)|-|---------o<| FK user_id          VARCHAR(80)|         |    percent                  NUMBER(3,0)|                                
 |    external_user_id   |             |    bank_name       VARCHAR(255)|         +----------------------------------------+
@@ -261,6 +261,9 @@ class AssetAllocation {
     - *externalUserId* should be present
         - return status code 400 (Bad Request) with error message: "Missing User ID"
     - *externalUserId* should match format {USER_ID_REGEX}
+        - return status code 400 (Bad Request) with error message: "Invalid User ID {user.externalUserId} value."
+    - *assets* count must be greater than 0
+        - return status code 400 (Bad Request) with error message: "Missing Asset Accounts (must have at least one Asset for User {user.externalUserId})"
  - **AssetAccount**
     - *accountNumber* should be present
         - return status code 400 (Bad Request) with error message:  "Missing Account Type for User {account.userId}"

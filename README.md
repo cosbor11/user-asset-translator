@@ -46,8 +46,10 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
    This is a user or client system that downloads files from our SFTP server
  - **SFTP Service:**
     Only one server is needed. Clients can have separate inbox and outbox folders that only they have access to. Amazon has a managed service as part of their [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) services. You can setup an SFTP inbox to point to a specific s3 buckets and sub folders. See the S3 Bucket/Cloud Filestore section for more information. GCP does not have a managed SFTP service, therefore, we can setup a medium-sized high compute instance with a community docker linux image with SFTP service running and a file listener to immediatly move the files from the instance to a file store.
+    The files placed in the inbox should be naned `{clientname}-{timestamp}.xml` so that if multiple files are placed at the same time, our system knows which one to process first.
+    The files placed in the outbox will be named `user-asset-report-{timestamp}.txt`
 
-    Note: For both solutions, setup a Route 53 or DNS CNAME to give our clients a pretty url to use. 
+    Note: For both solutions, setup a Route 53 or DNS CNAME to give our clients a pretty url to use.
 
     > **Security and Authentication:** 
     > *The AWS solution* can be done with an RSA PrivateKey (no need for username and password) 

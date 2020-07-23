@@ -4,19 +4,20 @@
 
 The purpose of this application is to process input from a Client that provides data in XML (either via SFTP or HTTP) and translate it into report format for another client to consume over SFTP.
 
+> *Note: The solution includes the AWS cloud setup as well as the Google Cloud components needed to do the same thing.*
 
 ## Implementation Summary
 
-This implementation uses AWS Serverless technologies. Essentially, when an xml message is received either:
+This implementation uses AWS or GCP Serverless technologies. Essentially, when an xml message is received either:
 
-  (1) on an AWS Integration Family managed SFTP Service that is backed by a s3 bucked called `user-asset-inbox`, or 
-  (2) a post message sent to API Gateway endpoint.
+  (1) on an AWS Integration Family managed SFTP Service that is backed by a file storage bucked called `user-asset-inbox`, or 
+  (2) a post message sent to an API Gateway cloud endpoint.
   
-The XML messages are sent to an AWS Lambda called `user-asset-event-processor` either by a cloud watch event listener that listens for S3 PutObject events, or is invoked as an endpoint handler in AWS Gateway. 
+The XML messages are sent to a Cloud function or Lambda called `user-asset-event-processor` either by a cloud watch event listener that listens for S3 PutObject events, or is invoked as an endpoint handler in the API Gateway. 
 
-The `user-asset-event-processor`'s duty is to immediatly split intosingle user asset messages and map those messages to and internal object serialized json format, validate, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them), then put them onto a message queue to be held for batch processsing. 
+The `user-asset-event-processor`'s duty is to immediatly split into single user-asset messages and map those messages to an internal object serialized json spec, validate, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them), then put them onto a message queue to be held for batch processsing. 
 
-A CloudWatchEvent Scheduled Cron job is configurued to invoke a second lambda called `user-asset-report-generator` that consumes all messages on queue (we can easily configure a max amount to prevent the process from timing out), converts them to report format along with account total summary information, then the report is sent to the a file store `user-asset-outbox` or a sftp inbox location, which will immediatly make it available on the SFTP managed service for clients to consume.
+A Cloud Scheduled Cron job is configurued to invoke a second cloud function or Lambda called `user-asset-report-generator` that consumes all messages on queue (we can easily configure a max amount to prevent the process from timing out), converts them to report format along with account total summary information, then the report is sent to the a file store `user-asset-outbox` or a sftp inbox location, which will immediatly make it available on the SFTP managed service for clients to consume.
 
 ## Reasoning
 

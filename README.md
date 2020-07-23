@@ -25,7 +25,7 @@ Rather than creating application servers, reverse proxies, logging services, and
 
 Cloud Durable Messaging Queues let us collect messages and hold them until the batching interval is ready to generate new reports. 
 
-I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided through put requirements, the full cost of this setup should be less that $60/mo. 
+I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided peek throughput requirements (6k rpm), the full cost of this setup should be less that $60/mo. 
 
 There are two lambda/cloud functions's total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload the report onto s3 or sftp server. 
 

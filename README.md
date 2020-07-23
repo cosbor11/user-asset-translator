@@ -27,7 +27,7 @@ Cloud Durable Messaging Queues let us collect messages and hold them until the b
 
 I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided peek throughput requirements (6k rpm), the full cost of this setup should be less that $60/mo. 
 
-There are two lambda/cloud functions's total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload the report onto s3 or sftp server. 
+There are two lambda/cloud functions total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload the report onto s3 or sftp server. 
 
 Cloud Events and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup loggly or machine monitoring tools like sensu, pager duty, promethus, or new relic). Also, at any point any of the entry point technologies can be replaced and easily integrated with the existing lambdas and queue flow.
 

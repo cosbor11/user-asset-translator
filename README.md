@@ -28,7 +28,7 @@ I also wanted to make the services as cost effective and auto-scalable as possib
 
 There are two lambda/cloud functions's total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload the report onto s3 or sftp server. 
 
-Cloud Event and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup loggly or machine monitoring tools like sensu, pager duty, promethus, or new relic). Also, at any point any of the entry point technologies can be replaced and easily integrated with the existing lambdas and queue flow.
+Cloud Events and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup loggly or machine monitoring tools like sensu, pager duty, promethus, or new relic). Also, at any point any of the entry point technologies can be replaced and easily integrated with the existing lambdas and queue flow.
 
 ## Network Diagram(s)
  
@@ -41,7 +41,7 @@ Cloud Event and Schedulers are helpful because the have built in logging and ale
 ## Components and Actors
 
  - **XML Data Provider**:
-   This is a user or client system that posts xml payloads to our http endpoint or sftp folder. 
+   This is a user or client system that posts xml payloads to our HTTPS endpoint or an SFTP folder. 
  - **Report Consumer**:
    This is a user or client system that downloads files from our sftp server
  - **SFTP Service:**

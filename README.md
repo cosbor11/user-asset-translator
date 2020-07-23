@@ -64,8 +64,8 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
     > The AWS solution: Clients can use an apiKey managed by the Cognito userpool service
     > The GCP solution can be done using Firebase username/password credentials 
   -  **S3 Bucket/Cloud Filestore**  
-    Before setting up the SFTP services will need to create a file store (s3 bucket). In our case we would setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  
-    For multi-tenant support, it would be a good idea to setup the folders with client name prefixes like this: `{client-name}/user-asset-inbox`. 
+    Before setting up the SFTP services will need to create a file store (s3 bucket). In our case we need to setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  
+    For multi-tenant support, it is a good idea to setup the folders with client name prefixes like this: `{client-name}/user-asset-inbox`. 
     We can also set a time-to-live policy for these files.  The files will be deleted automatically after 6 months (to reduce storage costs)
   -  **Lambdas/Cloud Functions** 
     Lambdas and Cloud Functions are serverless compute process with minimal scope that have high scalablily and limit the cost to the amount of executions invoked. 

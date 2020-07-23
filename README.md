@@ -14,20 +14,21 @@ This implementation uses AWS Serverless technologies. Essentially, an xml messag
   
 The XML messages are sent to an AWS Lambda called `user-asset-event-processor` either by a cloud watch event listener that listens for S3 PutObject events, or is invoked as an endpoint handler in AWS Gateway. 
 
-The  `user-asset-event-processor`'s duty is to immediatly split into single messages and map to json format matching our internal object serialized format and put onto sqs queue to be held for batch processsing. 
+The  `user-asset-event-processor`'s duty is to immediatly split into single user asset messages and map those messages to and internal object serialized json format, validate, move the files to either the `processed` or  `errors` sub folder (in case we need to replay them), then put them onto and sqs queue to be held for batch processsing. 
 
-A CloudWatchEvent Scheduled Cron job is configurued to invoke a lambda to consume all messages on queue, convert them to report format, put the original file onto the s3 buckets' processed folder (in case we need to replay them), and then eventually generate the report with account entriess, and account total summary information and is sent to the s3 `user-asset-outbox` bucket, which will immediatly make it available on the SFT managed service for clients to consume.
+A CloudWatchEvent Scheduled Cron job is configurued to invoke a secnd lambda to consume all messages on queue, convert them to report format along with account total summary information, then the report is sent to the s3 `user-asset-outbox` bucket, which will immediatly make it available on the SFT managed service for clients to consume.
 
 ## Reasoning
 
-Rather than creating application servers, reverss-proxies, logging services, database stored authentication users, I decided to leverage Cloud managed services for many processes like SFTP file transfer & storage (AWS SFTP Managed Service), authentication and user management and user data storage (AWS API Gateway + Congnito User Pool). 
+Rather than creating application servers, reverse-proxies, logging services, and a database for stored users for authentication, I decided to leverage Cloud Managed Services to do many processes like SFTP file transfer & storage (AWS SFTP Managed Service), authentication and user management and user data storage (AWS API Gateway + Congnito User Pool), etc. 
 
-The Clound Durable Messages Queues lets us collect messages and hold them until the batching interval is ready to generate new report of batches. 
+Cloud Durable Messaging Queues let us collect messages and hold them until the batching interval is ready to generate new report of batches. 
 
-I also wanted to make the service is auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. 
+I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. 
+
 There are two lambda/cloud functions's total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload the report onto s3 or sftp server. 
 
-Cloud events and schedules are helpful because the have built in loggin features. At any point any of the entry point technologies can be replaced and easily integrated with the existing lambdas and queue flow.
+Cloud Event and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup loggly or machine monitoring tools like sensu, pager duty, promethus, or new relic). Also, at any point any of the entry point technologies can be replaced and easily integrated with the existing lambdas and queue flow.
 
 ## Network Diagram(s)
  
@@ -43,10 +44,10 @@ Cloud events and schedules are helpful because the have built in loggin features
    This is a user or client system that posts xml payloads to our http endpoint or sftp folder. 
  - **Report Consumer**:
    This is a user or client system that downloads files from our sftp server
- - **SFTP Service**
-    Only one server is needed. Clients can have separate inbox and outbox folders that only they have access to. Amazon has a managed service as part of their [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) services. You can setup an sftp inbox to point to a specific s3 buckets and sub folders. See: S3 Bucket/Cloud Filestore for more information. GCP does not have a managed sftp service, so we can just setup a simple linux sftp service using a community docker image and setup file listeners to immediatly move the files to a file store. We
+ - **SFTP Service:**
+    Only one server is needed. Clients can have separate inbox and outbox folders that only they have access to. Amazon has a managed service as part of their [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) services. You can setup an sftp inbox to point to a specific s3 buckets and sub folders. See the S3 Bucket/Cloud Filestore section for more information. GCP does not have a managed sftp service, so we can just setup a med compute instance with a community docker linux image wit sftp service running ad a file listener to immediatly move the files from the instance to a file store.
 
-    note: we will need to setup Route 53 or DNS CNAME to give our clients a pretty url to use. 
+    Note: For both solutions, we should setup Route 53 or DNS CNAME to give our clients a pretty url to use. 
 
     > **Security and Authentication:** 
     > *The AWS solution* can be done with an RSA PrivateKey (no need for username and password) 
@@ -54,16 +55,16 @@ Cloud events and schedules are helpful because the have built in loggin features
     > *IP Whitelisting** should be done for both solution as an additional layer of security
     >*Firewall* configuration should to only allow ssh and ftp ports to be accessible 
  - **AWS Gateway/Cloud Endpoint**
-    A Cloud Managed API Gateway the can be re-directed to any solution in the future. 
-    One of the advantages of using a gateway is we can use a managed service for user management
+    A Cloud Managed API Gateway can have resfull endpoint configurations that are flexible to be re-directed to a different subsystem or integration enpoint at any point. 
+    One of the advantages of using an API gateway is we can easily leverage a managed service for user management
   - **Cognito/Firebase**  
     We can use `Cognito` or `Firebase` to onboard users into user pools, manages permissions, rotate and store credentials, as well as facilitate client self-serving password update.
 
     > **Authentication:** 
-    > The AWS solution can be done with a cognito apiKey, that only the client is privy to
-    > The GCP solution can be done using Firebase credentials 
+    > The AWS solution: Clients can use an apiKey managed by the Cognito userpool service
+    > The GCP solution can be done using Firebase username/password credentials 
   -  **S3 Bucket/Cloud Filestore**  
-    Before setting up the SFTP services will need create a file storage bucket. In our case we would setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  For multi-tenancy it would be a good idea to setup the folders with client username prefixes like this: `{client-name}/user-asset-inbox`. We can also set a time-to-live policy for these files. My suggestion is to only hold the files for 6 months (to reduce storage cost later on)
+    Before setting up the SFTP services will need to create a file store (s3 bucket). In our case we would setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  For multi-tenancy it would be a good idea to setup the folders with client username prefixes like this: `{client-name}/user-asset-inbox`. We can also set a time-to-live policy for these files. My suggestion is to only hold the files for 6 months (to reduce storage cost later on)
   -  **Lambdas/Cloud Functions** 
     Lambdas and Cloud Functions are serverless compute process with minimal scope that practiacally have limitless scalablily and limit the cost to the amount of executions you have. 
     Modern age tooling like AWS SAM makes it easy for us to specify a CloudFormation template to create and manage the necessary AWS Resources, Policies, Permissions and CloudWatch Events that are required to immediatly use the compute process. 
@@ -103,7 +104,7 @@ Cloud events and schedules are helpful because the have built in loggin features
 
 ## Entities
 
-Entity Diagram of Input. (I find it is best to always create a class structure that exactly matches the external systems' structure as well as a structure that 
+Entity Diagram of Input. (I find it is best to always create a class structure that exactly matches the external systems' structure as well as the internal structure, then map the two together in code) 
 
 **External System Model (UML)**
 ```                                
@@ -169,7 +170,7 @@ class AssetDescription {
                                       +--------------------------------+ 
 ```
 
-**External System Class Structure**
+**Internal System Class Structure**
 
 ```
 class User {
@@ -245,8 +246,37 @@ class AssetAllocation {
 }
 ```
 
+## Validations
+
+  - User
+    - externalUserId should be present
+        - return status code 400 (Bad Request) with error message: "Missing User ID"
+    - externalUserId should match format {USER_ID_REGEX}
+ - AssetAccount
+    - accountNumber should be present
+        - return status code 400 (Bad Request) with error message:  "Missing Account Type for User {account.userId}"
+    - accountType should be present
+        - return status code 400 (Bad Request) with error message:  "Missing Asset Account type for User {user.externalUserId} Account Number {account.accountNumber}"
+    - accountType should match cardinality
+        - return 400 Bad Request with error message: "Asset Account Bank Account Type is invalid value. '{account.accountType}' is unknown, for User {user.externalUserId} Account Number {account.accountNumber}"
+    - amount should be present
+        - return status code 400 (Bad Request) with error message:  "Missing Asset Account Amount for User {user.externalUserId} Account Number {account.accountNumber}"
+    - taxCode should be present
+        - return status code 400 (Bad Request) with error message:  "Missing Asset Account Tax Code for User {user.externalUserId} Account Number {account.accountNumber}"
+    - amount format
+        - return status code 400 (Bad Request) with error message: " Asset Account Amount is invalid currency format (should be rounded to the nearest dollar) for User {user.externalUserId} Account Number {account.accountNumber}"
+    - taxCode should match cardinality
+        - return 400 Bad Request with error message: "Asset Account Tax Code is invalid value. '{account.taxCode}' is unknown, for User {user.externalUserId} Account Number {account.accountNumber}"
+     - bankName should match cardinality
+        - return 400 Bad Request with error message: "Asset Account Bank Name is invalid value. '{account.bankName}' is unknown, for User {user.externalUserId} Account Number {account.accountNumber}"
+- AssetAllocation
+    - allocations should be present when accountType is BROKERAGE
+        - return 400 Bad Request with error message: "Asset Account Account allocations are missing. for User {user.externalUserId} Account Number {account.accountNumber}" 
+    - allocations sum when accountType is BROKERAGE should be 100
+        - return 400 Bad Request with error message: "Sum of Asset Account Account allocations is {SUM(account.allocations[i].pecent)}. The sum should equal 100, for User {user.externalUserId} Account Number {account.accountNumber}"
+
 ## Report Generation Strategy
-I would create a mustache template and for each messsage, on queue validate all the necessary parts are there, then apply the deserialized payload object to the mustache template, and accumulate a running total(s) and have add that to the bottom section of the report.  
+I would create a mustache template and for each messsage on queue, validate it, then apply the deserialized payload object to the mustache template, all while accumulating the running total(s) for the account field or whatever fields we would like to have aggregations for in future. Finally we would add the totals at the bottom of the script.
 
 ## Deployment
 

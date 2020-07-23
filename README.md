@@ -1,5 +1,20 @@
 # user-asset-translator
 
+----
+## Table of Contents
+1. [ Purpose ](##purpose)
+2. [ Implementation Summary ](##implementation-summary) 
+3. [ Reasoning ](#reasoning)
+4. [ Technology Resources ](##technology-resources)
+5. [ Network Diagrams ](##network-diagrams)
+6. [ Sequence Diagrams ](#sequence-diagrams)
+7. [ Entities ](#entities)
+8. [ Validations ](#validations)
+9. [Report Generation Strategy](#report-generation-strategy)
+10. [ Deployment ](#deployment)
+
+-------
+
 ## Purpose
 
 The purpose of this application is to process input from a client that provides data in XML (either via SFTP or HTTP) and translate it into report format for another client to consume over SFTP.
@@ -18,6 +33,18 @@ The XML messages are sent to a Cloud Function (Lambda) called `user-asset-event-
 The `user-asset-event-processor`' Function's duty is to immediatly split a file or payload into single user-asset messages and map those messages to an internal serialized object based on our json spec, validate them, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them). Finally, it will then put them onto a message queue to be held for batch processsing.
 
 A Cloud Scheduled Cron job is configurued to invoke a second cloud function or Lambda called `user-asset-report-generator` that consumes all messages on queue (max 100k), converts them to report format along with caluculating the account total summary information, then the report is sent to the a file store `user-asset-outbox` or a sftp inbox location, which will immediatly make it available on the SFTP managed service for clients to consume.
+
+## Reasoning
+
+Rather than creating application servers, reverse proxies, squid proxies, setitng up logging services, a database for storing users, onboarding, password management apis, load balancers, etc.. I decided to leverage Cloud Managed Services to do many of the same processes. Amazon provides a fully managed support for file transfers directly into and out of Amazon S3; GCP does not, but we can easily mimick this behavior. Both AWS and GCP feature rich and secure user management. For this usecase, I did not see the need to create a traditional servlet based application with API models, controllers, services, persistance ORMs, sessionss, connection pooling and auto scaling distributed design.
+
+Durable Message Queues in the cloud let us collect messages and hold them until the batching interval is ready to generate new reports. 
+
+I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided peek throughput requirements (6k requests-per-min), the full cost of this setup should be less that $50/mo.
+
+There are two lambda/cloud functions total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload to s3 or a SFTP server.
+
+Cloud Events and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup Loggly or monitoring tools like Sensu, PagerDuty, Promethus, or New Relic). Also, at any point, any of technologies can be replaced and easily integrated with the existing lambdas and queue flow. For example if you wanted to replace the queue with a topic, event stream, or invocation source.
 
 ## Technology Resources
 
@@ -52,19 +79,8 @@ A Cloud Scheduled Cron job is configurued to invoke a second cloud function or L
     - AWS: [CodeDeploy](https://aws.amazon.com/codedeploy)
     - GCP: [deployment manager](https://cloud.google.com/deployment-manager)
 
-## Reasoning
 
-Rather than creating application servers, reverse proxies, squid proxies, setitng up logging services, a database for storing users, onboarding, password management apis, load balancers, etc.. I decided to leverage Cloud Managed Services to do many of the same processes. Amazon provides a fully managed support for file transfers directly into and out of Amazon S3; GCP does not, but we can easily mimick this behavior. Both AWS and GCP feature rich and secure user management. For this usecase, I did not see the need to create a traditional servlet based application with API models, controllers, services, persistance ORMs, sessionss, connection pooling and auto scaling distributed design.
-
-Durable Message Queues in the cloud let us collect messages and hold them until the batching interval is ready to generate new reports. 
-
-I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided peek throughput requirements (6k requests-per-min), the full cost of this setup should be less that $50/mo.
-
-There are two lambda/cloud functions total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload to s3 or a SFTP server.
-
-Cloud Events and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup Loggly or monitoring tools like Sensu, PagerDuty, Promethus, or New Relic). Also, at any point, any of technologies can be replaced and easily integrated with the existing lambdas and queue flow. For example if you wanted to replace the queue with a topic, event stream, or invocation source.
-
-## Network Diagram(s)
+## Network Diagrams
  
  **AWS**
  <img width="100%" src="./docs/network-data-flow-diagram-aws.png" />
@@ -134,7 +150,7 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
                 - *AWS*: Cloud Watch Schedule (packaged with user-asset-event-processor SAM project) set to run on a cron schedule (every few min, every hour, daily, etc)
                 - *GCP*: Google Cloud Scheduler can notify a topic to invoke the function to process the messages in a Pub/Sub queue or topic
 
-## Sequence Diagram
+## Sequence Diagrams
  **SFTP**
  <img width="100%" src="./docs/user-asset-translator-sftp-sequence-diagram.svg" />
 

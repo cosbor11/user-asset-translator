@@ -171,7 +171,7 @@ class AssetDescription {
 +-----------------------+        1..n |       ASSET_ACCOUNTS           |         | -------------------------------------- | 
 |       USERS           | 1           | ------------------------------ |    +--o<| PK asset_account_id         VARCHAR(80)|  
 | ----------------------|             | PK asset_account_id VARCHAR(80)|-|-/     |    type                     VARCHAR(20)|                                 
-| PK user_id VARCHAR(30)|-|---------o<| FK user_id          VARCHAR(80)|         |    percent                  NUMBER(3,0)|                                
+| PK user_id VARCHAR(80)|-|---------o<| FK user_id          VARCHAR(80)|         |    percent                  NUMBER(3,0)|                                
 |    external_user_id   |             |    bank_name       VARCHAR(255)|         +----------------------------------------+
 +-----------------------+             |    account_number   VARCHAR(80)|         
                                       |    amount          NUMBER(10,2)|                         

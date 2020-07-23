@@ -1,4 +1,4 @@
-hitarth
+Pre interview notes...
 
 
 Questions:
@@ -201,7 +201,7 @@ Entity Diagram of Input. (I find it is best to always create a class structure t
 UML DIAGRAM
 --------                                                                               +-------------------------------+                                                     
                                         +---------------------------+             0..n |       AssetAccount            |                
-+--------------------+             0..1 |   AssetProfile            |                  | ------------------------------|     
++--------------------+             0..1 |   UserAssets              |                  | ------------------------------|     
 |       User         | 1                | ------------------------- |                  | PK accountNumber      (string)|              
 | ------------------ |                  | PK assetProfileId (string)|-|--------------o<| FK assetProfileId     (string)|               
 | PK userId  (string)|-|---------------o| FK userId         (string)|           +----|-| FK assetDescriptionId (string)|
@@ -230,7 +230,7 @@ public class User extends Serializable {
 	// getters & setters
 }
 
-public class AssetProfile extends Serializable {
+public class UserAssets extends Serializable {
 	private AssetAccount[] bankAccount;
 	private AssetAccount brokerageAccount;
 	private AssetAccount retirementAccount;

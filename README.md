@@ -71,7 +71,8 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
   -  **Lambdas/Cloud Functions** 
     Lambdas and Cloud Functions are serverless compute process with minimal scope that practiacally have limitless scalablily and limit the cost to the amount of executions you have. 
     Modern age tooling like AWS SAM makes it easy for us to specify a CloudFormation template to create and manage the necessary AWS Resources, Policies, Permissions and CloudWatch Events that are required to immediatly use the compute process. 
-    By default there is a 14 min timeout, but we can configure based on our usecase, Logging features come in the box, and we can test the services locally. My suggestion is to write these in nodejs or python (I prefer node), rather than Java, because of cold start issues.
+    By default there is a 14 min timeout, but we can configure based on our usecase, Logging features come out-of-the-box, and we can test the services locally. My suggestion is to write these using nodejs (my preference) or python, rather than Java, because of cold start issues.
+    These functions can be tested locally, and can be invoked locally against the qa/e2e test enviroments, if need be. 
     *We will need 2 lambdas/cloud functions:* 
         1) `user-asset-event-processor`: Tasked with ...
         - receiving xml file content or payload and splitting the batches into single entries 

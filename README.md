@@ -7,24 +7,24 @@ The purpose of this application is to process input from a Client that provides 
 
 ## Implementation Summary
 
-This implementation uses AWS Serverless technologies. Essentially, an xml message is received either:
+This implementation uses AWS Serverless technologies. Essentially, when an xml message is received either:
 
-  (1) on an AWS Integration Family managed SFTP Service that is backed by a s3 bucked called `user-asset-inbox`, 
-  or (2) a post message sent to API Gateway. 
+  (1) on an AWS Integration Family managed SFTP Service that is backed by a s3 bucked called `user-asset-inbox`, or 
+  (2) a post message sent to API Gateway endpoint.
   
 The XML messages are sent to an AWS Lambda called `user-asset-event-processor` either by a cloud watch event listener that listens for S3 PutObject events, or is invoked as an endpoint handler in AWS Gateway. 
 
-The  `user-asset-event-processor`'s duty is to immediatly split into single user asset messages and map those messages to and internal object serialized json format, validate, move the files to either the `processed` or  `errors` sub folder (in case we need to replay them), then put them onto and sqs queue to be held for batch processsing. 
+The `user-asset-event-processor`'s duty is to immediatly split intosingle user asset messages and map those messages to and internal object serialized json format, validate, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them), then put them onto a message queue to be held for batch processsing. 
 
-A CloudWatchEvent Scheduled Cron job is configurued to invoke a secnd lambda to consume all messages on queue, convert them to report format along with account total summary information, then the report is sent to the s3 `user-asset-outbox` bucket, which will immediatly make it available on the SFT managed service for clients to consume.
+A CloudWatchEvent Scheduled Cron job is configurued to invoke a second lambda that consumes all messages on queue, converts them to report format along with account total summary information, then the report is sent to the a file store `user-asset-outbox` or sftp inbox location, which will immediatly make it available on the SFT managed service for clients to consume.
 
 ## Reasoning
 
-Rather than creating application servers, reverse-proxies, logging services, and a database for stored users for authentication, I decided to leverage Cloud Managed Services to do many processes like SFTP file transfer & storage (AWS SFTP Managed Service), authentication and user management and user data storage (AWS API Gateway + Congnito User Pool), etc. 
+Rather than creating application servers, reverse proxies, logging services, and a database for stored users and authentication, I decided to leverage Cloud Managed Services to do many processes like SFTP file transfer & storage (AWS SFTP Managed Service), authentication & user management and user data storage (AWS API Gateway + Congnito User Pool), etc. 
 
 Cloud Durable Messaging Queues let us collect messages and hold them until the batching interval is ready to generate new report of batches. 
 
-I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. 
+I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided through put requirements, the full cost of this setup should be less that $60/mo. 
 
 There are two lambda/cloud functions's total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload the report onto s3 or sftp server. 
 
@@ -64,7 +64,9 @@ Cloud Event and Schedulers are helpful because the have built in logging and ale
     > The AWS solution: Clients can use an apiKey managed by the Cognito userpool service
     > The GCP solution can be done using Firebase username/password credentials 
   -  **S3 Bucket/Cloud Filestore**  
-    Before setting up the SFTP services will need to create a file store (s3 bucket). In our case we would setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  For multi-tenancy it would be a good idea to setup the folders with client username prefixes like this: `{client-name}/user-asset-inbox`. We can also set a time-to-live policy for these files. My suggestion is to only hold the files for 6 months (to reduce storage cost later on)
+    Before setting up the SFTP services will need to create a file store (s3 bucket). In our case we would setup `user-asset-inbox`, `user-asset-inbox/processed`, `user-asset-inbox/errors`, and `user-asset-outbox`.  
+    For multi-tenancy it would be a good idea to setup the folders with client username prefixes like this: `{client-name}/user-asset-inbox`. 
+    We can also set a time-to-live policy for these files. My suggestion is to only hold the files for 6 months (to reduce storage cost later on)
   -  **Lambdas/Cloud Functions** 
     Lambdas and Cloud Functions are serverless compute process with minimal scope that practiacally have limitless scalablily and limit the cost to the amount of executions you have. 
     Modern age tooling like AWS SAM makes it easy for us to specify a CloudFormation template to create and manage the necessary AWS Resources, Policies, Permissions and CloudWatch Events that are required to immediatly use the compute process. 

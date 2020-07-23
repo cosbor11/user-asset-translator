@@ -111,7 +111,7 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
 ## Entities
 
 I find it is best to create a class structure that exactly matches the external systems' payload structure as well as a class structure matching our internal schema, then map the two together in code.
-Below are the External and Internal Normalized models. I added the databases data type definitions even though there is not requirement to store any data, its there just to get an idea of what the data should look like
+Below are the External and Internal Normalized models. I added the databases data type definitions even though there is not a requirement to store any data, it's there just to get an idea of what the data should look like.
 
 **External System Model (UML)**
 ```                                

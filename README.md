@@ -39,7 +39,7 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
  **GCP**
 <img width="100%" src="./docs/user-asset-translator-network-diagram-gpc.svg" /> 
 
-## Components and Actors
+## Actors and Components
 
  - **XML Data Provider**:
    This is a user or client system that posts xml payloads to our HTTPS endpoint or an SFTP folder. 
@@ -133,7 +133,9 @@ Below are the External and Internal Normalized models. I added the databases dat
                                                                                        |    bankAccountType       (string)| * cardinality = CHECKING|SAVINGS
                                                                                        |    retirementAccountType (string)| * cardinality = 401k | IRA
                                                                                        |    bankName              (string)| 
-                                                                                       |                                  | 
+                                                                                       |    stockPercent          (number)| 
+                                                                                       |    bondsPercent          (number)| 
+                                                                                       |    otherPercent          (number)| 
                                                                                        +----------------------------------+
 ```
 **External System Class Structure**
@@ -164,7 +166,7 @@ class AssetDescription {
 **Internal Normalized Model (UML)**
 ```
                                                                                  +----------------------------------------+   
-                                      +--------------------------------+    0..1 |      ASSET_ACCOUNT_ALLOCATIONS         |  
+                                      +--------------------------------+    0..n |      ASSET_ACCOUNT_ALLOCATIONS         |  
 +-----------------------+        0..n |       ASSET_ACCOUNTS           |         | -------------------------------------- | 
 |       USERS           | 1           | ------------------------------ |    +--|<| PK asset_account_id         VARCHAR(80)|  
 | ----------------------|             | PK asset_account_id VARCHAR(80)|-|-/     |    type                     VARCHAR(20)|                                 

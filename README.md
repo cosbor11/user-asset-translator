@@ -54,11 +54,11 @@ A Cloud Scheduled Cron job is configurued to invoke a second cloud function or L
 
 ## Reasoning
 
-Rather than creating application servers, reverse proxies, logging services, and a database for storing users and authentication, I decided to leverage Cloud Managed Services to do many of the same processes like SFTP file transfer & storage (AWS SFTP Managed Service), authentication & user management and user data storage (AWS API Gateway + Congnito User Pool), etc.
+Rather than creating application servers, reverse proxies, squid proxies, setitng up logging services, a database for storing users, onboarding, password management apis, load balancers, etc.. I decided to leverage Cloud Managed Services to do many of the same processes. Amazon provides a fully managed support for file transfers directly into and out of Amazon S3; GCP does not, but we can easily mimick this behavior. Both AWS and GCP feature rich and secure user management. For this usecase, I did not see the need to create a traditional servlet based application with API models, controllers, services, persistance ORMs, sessionss, connection pooling and auto scaling distributed design.
 
-Cloud Durable Messaging Queues let us collect messages and hold them until the batching interval is ready to generate new reports. 
+Durable Message Queues in the cloud let us collect messages and hold them until the batching interval is ready to generate new reports. 
 
-I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided peek throughput requirements (6k rpm), the full cost of this setup should be less that $60/mo. 
+I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided peek throughput requirements (6k requests-per-min), the full cost of this setup should be less that $50/mo.
 
 There are two lambda/cloud functions total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload to s3 or a SFTP server.
 

@@ -2,18 +2,17 @@
 
 ## Purpose
 
-The purpose of this application is to process input from a Client that provides data in XML (either via SFTP or HTTP) and translate it into report format for another client to consume over SFTP.
+The purpose of this application is to process input from a client that provides data in XML (either via SFTP or HTTP) and translate it into report format for another client to consume over SFTP.
 
-> *Note: The solution includes the AWS cloud setup as well as the Google Cloud components needed to do the same thing.*
+> *Note: This solution includes the AWS cloud setup as well as the Google Cloud equivalent*
 
 ## Implementation Summary
 
 This implementation uses AWS or GCP Serverless technologies. Essentially, when an xml message is received either:
-
   (1) on an AWS Integration Family managed SFTP Service that is backed by a file storage bucked called `user-asset-inbox`, or 
   (2) a post message sent to an API Gateway cloud endpoint.
   
-The XML messages are sent to a Cloud function or Lambda called `user-asset-event-processor` either by a cloud watch event listener that listens for S3 PutObject events, or is invoked as an endpoint handler in the API Gateway. 
+The XML messages are sent to a Cloud Function or Lambda called `user-asset-event-processor` either by a cloud watch event listener that listens for S3 PutObject events, or in the http handling case, is invoked as an endpoint handler in the API Gateway. 
 
 The `user-asset-event-processor`'s duty is to immediatly split into single user-asset messages and map those messages to an internal object serialized json spec, validate, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them), then put them onto a message queue to be held for batch processsing. 
 
@@ -27,9 +26,9 @@ Cloud Durable Messaging Queues let us collect messages and hold them until the b
 
 I also wanted to make the services as cost effective and auto-scalable as possible. By taking adavantge of lambda/cloud functions concurrency, and boost capibilities. Based on the provided peek throughput requirements (6k rpm), the full cost of this setup should be less that $60/mo. 
 
-There are two lambda/cloud functions total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload to s3 or a sftp server. 
+There are two lambda/cloud functions total in this implementation, one to collect messages, normalize them into single record json payloads and publish them to queue, and another to consume messages from queue and generate a report file to then upload to s3 or a SFTP server. 
 
-Cloud Events and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup loggly or machine monitoring tools like sensu, pager duty, promethus, or new relic). Also, at any point any of the entry point technologies can be replaced and easily integrated with the existing lambdas and queue flow.
+Cloud Events and Schedulers are helpful because the have built in logging and alerting capibilities (no need to install and setup Loggly or monitoring tools like Sensu, PagerDuty, Promethus, or New Relic). Also, at any point, any of technologies can be replaced and easily integrated with the existing lambdas and queue flow. For example if you wanted to replace the queue with a topic or kind of event stream.
 
 ## Network Diagram(s)
  
@@ -44,19 +43,19 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
  - **XML Data Provider**:
    This is a user or client system that posts xml payloads to our HTTPS endpoint or an SFTP folder. 
  - **Report Consumer**:
-   This is a user or client system that downloads files from our sftp server
+   This is a user or client system that downloads files from our SFTP server
  - **SFTP Service:**
-    Only one server is needed. Clients can have separate inbox and outbox folders that only they have access to. Amazon has a managed service as part of their [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) services. You can setup an sftp inbox to point to a specific s3 buckets and sub folders. See the S3 Bucket/Cloud Filestore section for more information. GCP does not have a managed sftp service, so we can just setup a medium-sized high compute instance with a community docker linux image with sftp service running and a file listener to immediatly move the files from the instance to a file store.
+    Only one server is needed. Clients can have separate inbox and outbox folders that only they have access to. Amazon has a managed service as part of their [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) services. You can setup an SFTP inbox to point to a specific s3 buckets and sub folders. See the S3 Bucket/Cloud Filestore section for more information. GCP does not have a managed SFTP service, therefore, we can setup a medium-sized high compute instance with a community docker linux image with SFTP service running and a file listener to immediatly move the files from the instance to a file store.
 
-    Note: For both solutions, we should setup Route 53 or DNS CNAME to give our clients a pretty url to use. 
+    Note: For both solutions, setup a Route 53 or DNS CNAME to give our clients a pretty url to use. 
 
     > **Security and Authentication:** 
     > *The AWS solution* can be done with an RSA PrivateKey (no need for username and password) 
-    > *The GCP solution* would require ssh-ing into the linux service and adding usernames and passwords for our client(s). We can this into a firebase user pool if need be.
-    > *IP Whitelisting** should be done for both solution as an additional layer of security
-    >*Firewall* configuration should to only allow ssh and ftp ports to be accessible 
+    > *The GCP solution* would require system admins to ssh into the linux SFTP service to add username and password for our clients. We use Firebase user pool if need be.
+    > *IP Whitelisting** to be done for both solutions as an additional layer of security
+    >*Firewall* configuration to only allow ssh and SFTP ports to be accessible
  - **AWS Gateway/Cloud Endpoint**
-    A Cloud Managed API Gateway can have resfull endpoint configurations that are flexible to be re-directed to a different subsystem or integration enpoint at any point. 
+    A Cloud Managed API Gateway can have RESTful endpoint configurations that are flexible to be re-directed to a different subsystem or integration enpoint at any time. 
     One of the advantages of using an API gateway is we can easily leverage a managed service for user management
   - **Cognito/Firebase**  
     We can use `Cognito` or `Firebase` to onboard users into user pools, manages permissions, rotate and store credentials, as well as facilitate client self-serving password update.
@@ -84,7 +83,7 @@ Cloud Events and Schedulers are helpful because the have built in logging and al
         2) `user-asset-report-generator`: Tasked with ...
         - receiving all json entries on queue 
         - calculating SUM(UserAssetAccount.amount) for all entries
-        - if an error occurs, we should log the error messages and store the failures so we can later replay them. We should also put a redrive policy on the queue that will put the messages on an retry queue, so we can setup alerts and write a script to run replay the event payload. (this is helpful if there is a bug anywhere along the chain of handoffs)
+        - if an error occurs, we will log the error messages and store the failures so we can later replay them. We should also put a redrive policy on the queue that will put the messages on an retry queue, so we can setup alerts and write a script to run replay the event payload. (this is helpful if there is a bug anywhere along the chain of handoffs)
         - lastly, the lambda will put the events on S3 (or in the case of GCP directly on the SFTP endpoint to be consumed)
   -  **SQS/Cloud Pub Sub Queues and Topics** 
       Queues are great to use in this usecase because we can hold messages back and control the flow of user asset entries to either be consumed immediatly or on a scheduled cron job. We just need one queue for the `user-asset-events` (json) and another to store retry failures `user-asset-events-failures`.
@@ -115,7 +114,7 @@ Below are the External and Internal Normalized models. I added the databases dat
 
 **External System Model (UML)**
 ```                                
-                                                +-------------------------------+                                                     
+                                                +-------------------------------+     
  +---------------------------+             1..n |       AssetAccount            |                
  |   UserAsset               |                  | ------------------------------|     
  | ------------------------- |                  | PK accountNumber      (string)|              

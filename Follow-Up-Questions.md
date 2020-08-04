@@ -5,7 +5,7 @@ Follow Up Questions
 ## What's the design for changing the output formats?
 
 
-Output Generation is done in the `user-asset-report-generator`...
+Output generation is done in the `user-asset-report-generator`...
 Because the output format is not structured data like json, or xml, it is plain-text report format, I decided to use a templating framework. I've worked with several java templating frameworks such as Freemarker, Velocity, Thymeleaf, and Mustache, etc. My favorite is Mustache, and it has support in most other languages. I would write the lambda in nodejs. The input is xml, then gets translated to json and put on queue. when we consume the message from queue it will be in json format so we can just take the json message on queue, deserialize it to our class structure, then apply it to the template to get our desired output.
 
 ## asset-report-generator pattern classes and psuedo code:
@@ -453,12 +453,13 @@ The file name for /errors and /processed would not diff from the original file a
 the file format should have a name and ISO 8601 timestamp in UTC. 
 - Example Input Filename: 
 
-      USER_ASSET_FILE_2020-08-04T05:22:52.xml
+      USER_ASSET_KEYBANK_2020-08-04T05:22:52.xml
 
 - Example Output Filename: 
 
       ASSET_REPORT_2020-08-04T05:23:52.txt
 
+* alternative: we could consider adding the data providerss shorthand mame to the file naming to make it easier to identify. In the example above "KEYBANK" is the data provider. 
 
 ## How does user-asset-event-processor split batches into single entries?
  
@@ -466,7 +467,7 @@ the file format should have a name and ISO 8601 timestamp in UTC.
 
 ## Is the report generator keeping the report in memory until the whole file is ready to be written to disk and available for pick-up?  
 
-   Yes, if we load test it and have any problems we could split the reports based on max file size
+   Yes, if we load test it and have any problems we could split the reports based on maxFileSize or maxRecords. From my experience, I've never ran into any out-of-memory issues the only issues I've encounterd is related to timeouts occuring while processing. To prevent that we could consider tracking the process time during execution and a minute before the 14 min timeout is reached we put the remaing records back on top of the queue, and cut the file generation early. We would still produce the file with the a subsection of the bulk consumed from queue.  
 
 ## The signal for report to be generated is a two minute interval between requests.  If we receive a request every minute for an hour and then nothing for two minutes, then the report will have data from 60 requests.  How is this implemented?
 

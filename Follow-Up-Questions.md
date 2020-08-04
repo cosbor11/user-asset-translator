@@ -34,8 +34,8 @@ class LambdaHandler {
     }
     
     try{
-		  String fileContent = reportGen.generate(validUsers, event.templateName)
-		    s3.putObject('/user-asset-outbox/ASSET_REPORT_{now.toISO()}.txt', fileContent)
+      String fileContent = reportGen.generate(validUsers, event.templateName)
+      s3.putObject('/user-asset-outbox/ASSET_REPORT_{now.toISO()}.txt', fileContent)
     } catch(e){
       log.error(e)
       throw e // all records will stay on queue
@@ -445,8 +445,7 @@ The new AssetAccount would also conform to the AssetAccount class. For example, 
 ## What's the design for serializing output?
 
 Report serialization/generation is done in `user-asset-report-generator`...
-Because the output format is not structured data like json, or xml, and it is in plain-text report format, 
-I decided to use a templating framework. I've worked with several templating engines such as Freemarker, Velocity, Thymeleaf, and Mustache. My preference is Mustache, because it has support in most languages. I would recommend writing the lambda in nodejs. The input is xml, then gets translated to json and put on queue. when we consume the message from queue it is in json format so we can just take our structure and apply it to the template. 
+Because the output format is not structured data like json, or xml, and it is in plain-text report format, I decided to use a templating framework. I've worked with several templating engines such as Freemarker, Velocity, Thymeleaf, and Mustache. My preference is Mustache, because it has support in most languages. I would recommend writing the lambda in nodejs. The input is xml, then gets translated to json and put on queue. when we consume the message from queue it is in json format so we can just take our structure and apply it to the template.
 
 ## What's the organization, or key naming convention, in the user-asset-inbox/processed and user-asset-inbox/errors buckets?
 
@@ -473,30 +472,30 @@ the file format should have a name and ISO 8601 timestamp in UTC.
 
    A dry walkthrough of this scenario would be like this:
 
-   >0m
-   +1m file n(1) received
-   +2m file n(2) received
-   [first report generated]
-   +3m file n(3)received
-   +4m file n(4) received
-   [second report generated]
+   - 0m
+   - +1m file n(1) received
+   - +2m file n(2) received
+   - [first report generated]
+   - +3m file n(3)received
+   - +4m file n(4) received
+   - [second report generated]
 
    Or do you mean we would receive a request every second?
 
-   >0s
-   +1s file n(1) received
-   +2s file n(2) received
-   +3s file n(3) received
+   - 0s
+   - +1s file n(1) received
+   - +2s file n(2) received
+   - +3s file n(3) received
    ...
-   +60s file n(60) received
-   [first report generated]
-   +61s file n(61) received
-   +62s file n(62) received
+   - +60s file n(60) received
+   - [first report generated]
+   - +61s file n(61) received
+   - +62s file n(62) received
    ...
-   +120s file n(120) received 
-   [second report generated]
+   - +120s file n(120) received 
+   - [second report generated]
 
-   In either case, if we have 60 asset events on queue, then we would process all 60 unless we decided to have a maximum constraint set. The report-generator consumes every 2 min, all messages on queue, so however many are there, it should be able to process them.
+   In either case, if we have 60 asset events on queue, then we would process all 60 unless we decided to have a maximum constraint set. The report-generator consumes events every 2 min, all messages on queue, so however many are there, it should be able to process them.
 
 
 ## Where does the data for retirementAccountType go?  Is the AssetAccount class used to hold data from both brokerageAccount and bankAccount elements?
@@ -543,18 +542,18 @@ This depends on if we can forsee any reason to access the user-asset-report-gene
 ## You listed various ways to get a 400 for validation. but there are all kinds of other possible status codes.  List any non-validation ones and describe how their error message (for those that are errors) will be populated.  For example you could get a 500 for various reasons.  
 
 Pre parsing errors:
-  - 401 Unauthorized: client error status response code indicates that the request has not been applied because it lacks valid authentication credentials for the target resource.
-  - 403 Forbidden:  client error when they do not have access rights to the resource
-  - 405 Method Not Allowed: for example, if they try to do a GET instead of POST,
-  - 413 Payload Too Large
+  - **401 Unauthorized:** client error status response code indicates that the request has not been applied because it lacks valid authentication credentials for the target resource.
+  - **403 Forbidden:**  client error when they do not have access to the resource or endpoint
+  - **405 Method Not Allowed:** for example, if they try to do a GET instead of POST,
+  - **413 Payload Too Large**
+  - **400 Bad Request:** validation errors
 
 Parsing errors:  
-  - 500 Service Error - any time the process unexpectantly fails
-  - 504 Gateway Timeout - when the processing takes too long
+  - **500 Service Error** - any time the process unexpectantly fails
+  - **504 Gateway Timeout** - when the processing takes too long
 
 After Parsing errors:
-  - 500 Service Error - if publishing to queue fails or any other coding error NullPointer, etc
-
+  - **500 Service Error** - if publishing to queue fails or any other coding error NullPointer, etc
 
 ## What's the strategy in your code for a unified way to serialize different kinds of exceptions into structured data in the response?
 

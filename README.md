@@ -25,18 +25,18 @@ The purpose of this application is to process input from a client that provides 
 
 This implementation features AWS or GCP Serverless technologies. Essentially, when an xml message is received, it there are two entry points:
   
-  (1) A [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) mananged SFTP Service that is backed by a file storage bucked called `user-asset-inbox`. (or application based sftp server for the GPC case)
+  (1) An [aws-transfer-family](https://aws.amazon.com/aws-transfer-family) mananged SFTP Service that is backed by a file storage bucket called `user-asset-inbox`. (or an application based sftp server for the GPC case)
   (2) An API Gateway cloud POST endpoint
   
 The XML messages are sent to a Cloud Function (Lambda) called `user-asset-event-processor` either by a cloud watch event listener that listens for new files being added, or in the http handling case, is invoked as an endpoint handler in the API Gateway/Endpoint.
 
-The `user-asset-event-processor`' Function's duty is to immediatly split a file or payload into single user-asset messages and map those messages to an internal serialized object based on our json spec, validate them, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them). Finally, it will then put them onto a message queue to be held for batch processsing.
+The `user-asset-event-processor` Function's duty is to immediatly split a file or payload into single user-asset messages and map those messages to an internal serialized object based on our json spec, validate them, then move the original files to either the `processed` or  `errors` sub folder (in case we need to replay them). Finally, it will then put them onto a message queue to be held for batch processsing.
 
-A Cloud Scheduled Cron job is configurued to invoke a second cloud function or Lambda called `user-asset-report-generator` that consumes all messages on queue (max 100k), converts them to report format along with caluculating the account total summary information, then the report is sent to the a file store `user-asset-outbox` or a sftp inbox location, which will immediatly make it available on the SFTP managed service for clients to consume.
+A Cloud Scheduled Cron job is configurued to invoke a second cloud function or Lambda called `user-asset-report-generator` that consumes all messages on queue (max 100k), converts them to report format along with calculating the account total summary information, then the report is sent to the a file store `user-asset-outbox` or a sftp inbox location, which will immediatly make it available on the SFTP managed service for clients to consume.
 
 ## Reasoning
 
-Rather than creating application servers, reverse proxies, squid proxies, setitng up logging services, a database for storing users, onboarding, password management apis, load balancers, etc.. I decided to leverage Cloud Managed Services to do many of the same processes. Amazon provides a fully managed support for file transfers directly into and out of Amazon S3; GCP does not, but we can easily mimick this behavior. Both AWS and GCP feature rich and secure user management. For this usecase, I did not see the need to create a traditional servlet based application with API models, controllers, services, persistance ORMs, sessionss, connection pooling and auto scaling distributed design.
+Rather than creating application servers, reverse proxies, squid proxies, setitng up logging services, a database for storing users, onboarding, password management apis, load balancers, etc.. I decided to leverage Cloud Managed Services to do many of the same processes. Amazon provides a fully managed support for file transfers directly into and out of Amazon S3; GCP does not, but we can easily mimick this behavior. Both AWS and GCP feature rich and secure user management. For this usecase, I did not see the need to create a traditional servlet based application with API models, controllers, services, persistance ORMs, sessions handling, connection pooling and auto scaling distributed design.
 
 Durable Message Queues in the cloud let us collect messages and hold them until the batching interval is ready to generate new reports. 
 

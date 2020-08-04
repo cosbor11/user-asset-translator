@@ -5,12 +5,182 @@ Follow Up Questions
 ## What's the design for changing the output formats?
 
 
-this is done in `user-asset-report-generator`...
-Because the output format is not structured data like json, or xml, it is plain-text report format, I decided to use a templating framework. I've worked with several java templating frameworks such as freemarker, Velocity, Thymeleaf, and Mustache. 
-My avorite is Mustache, and it has support in most other languages. I would write the lambda in nodejs. The input is xml, then gets translated to json and put on queue. when we consume the message from queue it is in json format so 
-we can just take our structure and apply it to the template. 
+Output Generation is done in the `user-asset-report-generator`...
+Because the output format is not structured data like json, or xml, it is plain-text report format, I decided to use a templating framework. I've worked with several java templating frameworks such as Freemarker, Velocity, Thymeleaf, and Mustache, etc. My favorite is Mustache, and it has support in most other languages. I would write the lambda in nodejs. The input is xml, then gets translated to json and put on queue. when we consume the message from queue it will be in json format so we can just take the json message on queue, deserialize it to our class structure, then apply it to the template to get our desired output.
 
-## user-asset-translater pattern classes and psuedo code:
+## asset-report-generator pattern classes and psuedo code:
+
+```
+class LambdaHandler {
+
+  S3Client s3 = new S3Client()
+  SQSClient sqs = new SQSClient()
+
+  UserValidator userValidator = new UserValidator()
+  SummaryReportGenerator reportGen = new SummaryReportGenerator()
+
+  List<Users> validUsers = new List()
+  List<Users> invalidUsers = new List()
+
+  handler(event){
+    try {
+      event.users.forEach(user) ->
+        userValidator.validate(user)
+        validUsers.add(user)
+      )
+    } catch(e){
+      logger.error(user, e)
+      invalidUsers.add(user)
+    }
+    
+    try{
+		  String fileContent = reportGen.generate(validUsers, event.templateName)
+		    s3.putObject('/user-asset-outbox/ASSET_REPORT_{now.toISO()}.txt', fileContent)
+    } catch(e){
+      log.error(e)
+      throw e // all records will stay on queue
+    }
+
+    try {
+        sqs.publish('invalid-user-asset-events-queue', invalidUsers)
+    } catch(e){
+      log.warn('could not publish invalid users. error: {e.message}`
+      log.warn(JSON.stringify(invalidUsers))
+    }
+
+    log.info('finished processing without error! duration: {duration})
+    
+    return {statusCode: 200, message: 'file {fileName' was successfully uploaded to '/user-asset-outbox'}
+	}
+}
+```
+
+```
+class UserAssetReport {
+    List<AssetAccount> accounts;
+    List<IReportAggregation> aggregations = Arrays.asList(
+                                new ReportSumAggregation()
+                                new ReportMeanAggregation()
+    )
+    
+    add(AssetAccount assetAccount){
+        accounts.add(assetAccount)
+        aggregations.forEach(aggregation -> {
+            aggregation.add(assetAccount)
+        })
+    }
+}
+```
+
+```
+interface IReportAggregation<T> {
+	String getType()
+	add(AssetAccount userAsset)  // conditional filtering can be done here
+	T calculate()
+}
+```
+
+```
+class ReportSumAggregation implements IReportAggregation<Double> {
+
+	List<Double> values = new ArrayList<>();
+
+	String getType()
+	{
+	  return "Total"
+	}
+	
+	add(AssetAccount assetAcount){
+		values.add(assetAccount.getAmount())
+	}
+
+	Double calculate(){
+		Double sum = 0
+		values.forEach(val){
+			sum = sum + val
+		}
+		return sum
+	}
+}
+```
+
+```
+class ReportMeanAggregation implements IReportAggregation<Double> {
+
+	List<Doubles> values = new List<>();
+
+	String getType() 
+	{
+	  return "total"
+	}
+	
+	add(AssetAccount assetAcount){
+		values.add(assetAccount.getAmount())
+	}
+
+	Double calculate(){
+		Double sum = 0
+		values.forEach(val){
+			sum = sum + val
+		}
+		return sum / values.count()
+	}
+}
+```
+
+```
+interface ITemplateEngine {
+	apply(pathToTemplate,  List<AssetAccount> assetAccounts)
+}
+```
+
+```
+class MustacheTemplateEngine {
+	String apply(pathToTemplate,  AssetReport report){
+		fileContent = mustacheAPI.apply(pathToTemplate, report)
+		return fileContent
+	}
+}
+```
+
+```
+class SummaryReportGenerator {
+	
+	Map<String, String> templates = new HashMap();
+
+	static 
+	{
+		templates.put('primary', 'path/to/asset-report.mustache' ) 
+	}
+	
+	ITemplateEngine templateEngine = new MustachTemplateEngine()
+
+	UserAssetReport report = new UserAssetReport()
+
+	String generate(List<User> users, String templateName){
+
+		users.forEach((user) -> {
+			user.getAssetAccounts().forEach((assetAccount)-> {
+				report.getAssetAccounts().add(assetAccount)
+				report.aggregate(assetAccount)
+			})
+		})
+
+		String fileContent = templateEngine.apply(templates.get(templateName), report)
+
+		return fileContent;
+	}
+}
+```
+
+```
+class UserValidator {
+  validate(User user)
+}
+```
+
+
+## user-asset-processor pattern classes and psuedo code:
 
 In this example both the input model and the output model have the same names but a different namespace, so to make it clearer we can rename the user input based on the provider. So if the provider was Chase Bank, it would be called ChaseBankUser. In this case I'll just rename the input classes to be ExternalUser
 
@@ -81,6 +251,82 @@ class ExternalUserXMLParser {
 ```
 
 ```
+class LambdaHandler {
+  
+  SQSClient sqs = new SQSClient()
+  SQSClient s3 = new S3Client()
+  IExternalUserXMLParser xmlParser = new ExternalUserXMLParser()
+  Json2UserMapper json2UserMapper = new Json2UserMapper()
+  ExternalUserValidator validator = new ExternalUserValidator()
+  InboxFileValidator inboxFileValidator = new InboxFileViolator()
+  ExternalUser2UserMapper externalUser2UserMapper = new ExternalUser2UserMapper()
+  ErrorHandler errorHandler = new ErrorHandler()
+
+  handler(event){
+    try {
+
+      if(isFile(event)){
+        inboxFileValidator.validate(event)
+      }  
+
+      String xmlPayload = getXmlFromEvent(event)
+      JsonNode jsonNodes = xmlParser.parse(xmlPayload)
+      List<ExternalUsers> externalUsers = json2UserMapper.map(jsonNodes);
+ 
+      //validate xml (all or none)
+      externalUsers.forEach(externalUser -> 
+          validator.validate(externalUser)
+      )
+
+      List<User> users = externalUser2UserMapper.map(externalUsers)
+
+      users.forEach((message) -> 
+        sqs.publish(message)
+      )
+
+    } catch(e){
+      log.error(e)
+      if(isFile(event)){
+        s3.put('/errors/{event.pathToS3File}', xmlPayload)
+      } else {
+        return errorHandler.transformError(e)
+      }
+    }
+
+    try {
+      if(isFile(event)){
+        s3.putObject('/processed/{event.pathToS3File}', xmlPayload)
+        s3.deletObject(event.getPathToS3File())
+      }
+    } catch(e){
+      log.warn('failed to move file: {event.pathToS3File}) //cloudwatch alert
+    }
+
+    log.info(`processed with no errors! duration: {duration}`)
+
+    return {
+        statusCode: 202, 
+        message: 'Your request will be processed shortly`
+    }
+    
+  }
+
+  isFile(event){
+    return !(event isTypeOf String)
+  }
+
+  getXmlFromEvent(event){
+    if(!isFile()){
+      return event
+    } else {
+      return s3Client.getObject(event.getPathToS3File())
+      return getFileContent()
+    }
+  }
+}
+```
+
+```
 class Json2ExternalUserMapper {
     
     ExternalUser map(JsonNode jsonNode){
@@ -118,6 +364,15 @@ class ExternaUserInputValidator {
 ```
 
 ```
+class InboxFileValidator {
+  validate(event.getPathToFile){
+    //should be format `USER_ASSET_FILE_{ISO_DATE}.xml`
+    throw e
+  }
+}
+```
+
+```
 class ExternalUser2UserMapper {
 
     User map (ExternalUser externalUser){
@@ -134,175 +389,34 @@ class ExternalUser2UserMapper {
 ```
 
 ```
-class LambdaHandler {
-  SQSClient sqs = new SQSClient()
-
-  IExternalUserXMLParser xmlParser = new ExternalUserXMLParser()
-  Json2UserMapper json2UserMapper = new Json2UserMapper()
-  ExternalUserValidator validator = new ExternalUserValidator()
-  ExternalUser2UserMapper externalUser2UserMapper = new ExternalUser2UserMapper()
-  ExceptionHandl
-
-  handler(String xmlPayload){
-
-    JsonNode json = xmlParser.parse(xmlPayload)
-    List<ExternalUsers> externalUsers = json2UserMapper.map(json);
-    externalUsers.forEach(externalUser -> 
-        validator.validate(externalUser)
-    )
-
-    List<User> users = externalUser2UserMapper.map(externalUsers)
-
-    users.forEach((message) -> sqs.publish(message))
-  }
+class APIError {
+    String message
+    int statusCode
+    String errorCode
 }
 ```
 
-*note: exception handling will be done in the gateway
-
-## asset-report-generator pattern classes and psuedo code:
-
 ```
-class UserAssetReport {
-    List<AssetAccount> accounts;
-    List<IReportAggregation> aggregations = Arrays.asList(
-                                new ReportSumAggregation()
-                                new ReportMeanAggregation()
-    )
-    
-    add(AssetAccount assetAccount){
-        accounts.add(assetAccount)
-        aggregations.forEach(aggregation -> {
-            aggregation.add(assetAccount)
-        })
+class ErrorHandler {
+
+    APIError transform (TypedException e1){
+      ApiError apiError = new ApiError()
+      //map e1 to apiError
+
+      return apiError;
+    }
+
+    APIError transform (AnotherTypedException e2){
+      ApiError = new ApiError()
+      //map e2 to apiError
+      return apiError;
     }
 }
 ```
 
-```
-interface IReportAggregation<T> {
-	String getType()
-	add(AssetAccount userAsset)
-	T calcuclate()
-}
-```
-
-```
-class ReportSumAggregation implements IReportAggregation<Double> {
-
-	List<Double> values = new ArrayList<>();
-
-	String getType()
-	{
-	  return "Total"
-	}
-	
-	add(AssetAccount assetAcount){
-		values.add(assetAccount.getAmount())
-	}
-
-	Double calcuclate(){
-		Double sum = 0
-		values.forEach(val){
-			sum = sum + val
-		}
-		return sum
-	}
-}
-```
-
-```
-class ReportMeanAggregation implements IReportAggregation<Double> {
-
-	List<Doubles> values = new ArrayList<>();
-
-	String getType() 
-	{
-	  return "Total"
-	}
-	
-	add(AssetAccount assetAcount){
-		values.add(assetAccount.getAmount())
-	}
-
-	Double calcuclate(){
-		Double sum = 0
-		values.forEach(val){
-			sum = sum + val
-		}
-		return sum / values.count()
-	}
-}
-```
-
-```
-interface ITemplateEngine {
-	apply(pathToTemplate,  List<AssetAccount> assetAccounts)
-}
-```
-
-```
-class MustacheTemplateEngine {
-	String apply(pathToTemplate,  AssetReport report){
-		fileContent = mustacheAPI.apply(pathToTemplate, report)
-		return fileContent
-	}
-}
-```
-
-```
-class SummaryReportGenerator {
-	
-	Map<String, String> templates = new HashMap();
-
-	static 
-	{
-		templates.put('primary', 'path/to/asset-report.mustache' ) 
-	}
-	
-	ITemplateEngine templateEngine = new MustachTemplateEngine()
-
-	UserAssetReport report = new UserAssetReport()
-
-	String generate(List<User> users, String templateName){
-
-		users.forEach((user) -> {
-			user.getAssetAccounts().forEach((assetAccount)-> {
-				report.getAssetAccounts().add(assetAccount)
-				report.aggregate(assetAccount)
-			})
-		})
-
-		String fileContent = templateEngine.apply(templates.get(templateName), report)
-
-		return fileContent;
-	}
-}
-```
-
-```
-class UserValidator {
-  validate
-}
-```
-
-```
-class LambdaHandler {
-
-  S3Client s3 = new S3Client()
-  UserValidator userValidator = new UserValidator()
-  SummaryReportGenerator reportGen = new SummaryReportGenerator()
-
-	handler(event){
-  
-    userValidator.validate(event.users)
-
-		String fileContent = reportGen.generate(event.users, event.templateName)
-		
-		s3.putObject(fileContent)
-	}
-}
-```
+*alternatives*:
+ - we can look into exception handling to be done in the gateway
+ - we could also have an error payload that supports multiple errors, one for each line item.
 
 
 ## What's the design for adding new filtered aggregates?
@@ -311,12 +425,12 @@ To add a new filtered aggregate, you just need to
   -  create another implementation of IReportAggregation
   -  add the concrete class to the UserAssetReport's list of IReportAggregation
 
-  the aggregation will automatically get printed to the report in the summary section becuase the mustache template will do a for each on the aggregations
+  the aggregation will automatically get printed to the report in the summary section becuase the mustache template will enumerate all of the aggregations
 
 ## What's the design for adding new types of assets? 
 
-For a new Account Type support you would need to add to the enum list, and the MoneyMarketAccountTaxCode or null if not applicable
-A new asset would also conform to the AssetAccount class. For example, lets add a Money Market account as a new type...
+For new AssetAccountType support, you would need to add a new enum to the AssetAccountTypesEnum, and, if applicable, a MoneyMarketAccountTaxCodeEnum.
+The new AssetAccount would also conform to the AssetAccount class. For example, lets add a new type of account. For this example, I'll introduce a MoneyMarketAssetAccount as a new type...
 
 ```
    AssetAccount moneyMarketAccount = new AssetAccount();
@@ -324,16 +438,15 @@ A new asset would also conform to the AssetAccount class. For example, lets add 
    moneyMarketAccount.setAccountAccountId(uuid())
    moneyMarketAccount.setAccountNumber()
    moneyMarketAccount.setAmount(100000D)
-   moneyMarketAccount.setAccountType(AccountTypes.MONEY_MARKET)
-   moneyMarketAccount.setTaxCode(null)
+   moneyMarketAccount.setAccountType(AssetAccountTypesEnum.MONEY_MARKET)
 ```
 
 
 ## What's the design for serializing output?
 
-this is done in `user-asset-report-generator`...
-Because the output format is not structured data like json, or xml, it is plain-text report format, 
-I decided to use a templating framework. I've worked with several java templating frameworks such as freemarker, Velocity, Thymeleaf, and Mustache. My favorite is Mustache, and it has support in most other languages. I would write the lambda in nodejs. The input is xml, then gets translated to json and put on queue. when we consume the message from queue it is in json format so we can just take our structure and apply it to the template. 
+Report serialization/generation is done in `user-asset-report-generator`...
+Because the output format is not structured data like json, or xml, and it is in plain-text report format, 
+I decided to use a templating framework. I've worked with several templating engines such as Freemarker, Velocity, Thymeleaf, and Mustache. My preference is Mustache, because it has support in most languages. I would recommend writing the lambda in nodejs. The input is xml, then gets translated to json and put on queue. when we consume the message from queue it is in json format so we can just take our structure and apply it to the template. 
 
 ## What's the organization, or key naming convention, in the user-asset-inbox/processed and user-asset-inbox/errors buckets?
 
@@ -350,7 +463,7 @@ the file format should have a name and ISO 8601 timestamp in UTC.
 
 ## How does user-asset-event-processor split batches into single entries?
  
-   The file content is first deserialized into a collection, them split in code. 
+   The file content is first deserialized into a collection, then interated upon.
 
 ## Is the report generator keeping the report in memory until the whole file is ready to be written to disk and available for pick-up?  
 
@@ -358,9 +471,9 @@ the file format should have a name and ISO 8601 timestamp in UTC.
 
 ## The signal for report to be generated is a two minute interval between requests.  If we receive a request every minute for an hour and then nothing for two minutes, then the report will have data from 60 requests.  How is this implemented?
 
-   A dry walktrough of this scenario would be like this:
+   A dry walkthrough of this scenario would be like this:
 
-   0m
+   >0m
    +1m file n(1) received
    +2m file n(2) received
    [first report generated]
@@ -370,7 +483,7 @@ the file format should have a name and ISO 8601 timestamp in UTC.
 
    Or do you mean we would receive a request every second?
 
-   0m
+   >0s
    +1s file n(1) received
    +2s file n(2) received
    +3s file n(3) received
@@ -383,8 +496,7 @@ the file format should have a name and ISO 8601 timestamp in UTC.
    +120s file n(120) received 
    [second report generated]
 
-   In the case, if we have 60 asset events on queue, then we would process all 60 unless we decided to have a max records consumed set. The report-generator consumes every 2 min all messages on queue, so however many are there it should be able to process them.
-
+   In either case, if we have 60 asset events on queue, then we would process all 60 unless we decided to have a maximum constraint set. The report-generator consumes every 2 min, all messages on queue, so however many are there, it should be able to process them.
 
 
 ## Where does the data for retirementAccountType go?  Is the AssetAccount class used to hold data from both brokerageAccount and bankAccount elements?
@@ -395,7 +507,7 @@ yes.
 
 ## Does it make sense to scale any part of this?  If the answer is yes, that may affect output ordering, in which case you should describe how ordering is preserved. 
 
-Output ordering is preserved because the queue is set to have FIFO (first in first out ordering). If more xml messages come in, it will essentially throttle based on the maxRecordsConsumed setting of the report generator. The lambda will originally be configured to only allow 1 active invocation. We could scale the report generation by allowing concurrent invocations. in this case, we can ensure that files are put in order by adding a temporary holding folder for completed reports to go in, then another queue, that has a message co taining the file name, then poll for a specific file to exist before moving to the outbox. 
+Sequence is preserved because the queue is set to have FIFO (first in first out process ordering). As the rate of incoming xml messages increases, it will essentially throttle based on the maxRecords setting in the report generator. The lambda will originally be configured to only allow 1 active invocation. We could scale the report generation by allowing concurrent invocations. in this case, we can ensure that files are put in order by adding a temporary holding folder for completed reports to go in, then another queue, that has a message co taining the file name, then poll for a specific file to exist before moving to the outbox. 
 
 Alternativly, we can add a sequence number within the report and instruct the consumer to not process out-of-order. 
 
@@ -447,12 +559,12 @@ After Parsing errors:
 ## What's the strategy in your code for a unified way to serialize different kinds of exceptions into structured data in the response?
 
 - **API exceptions**
-should match format: 
+should match schema of example below: 
 ```
   {
     statusCode: 400,
     errorCode: "MANDATORY_FIELD"
-    message: "Missing Asset Account Amount for User '121243645' Account Number '6546453645'",
+    message: "Missing Asset Account Amount for User '121243645' Account Number '6546453645'"
   }
 ```
 - **Lambda exceptions**
@@ -462,9 +574,6 @@ should match format:
 ## Are there limitations in your system for these status codes?  For example, are there scenarios where a request can't be processed, but a 200 is returned?  It's perfectly fine to have limitations, but you should explain why the benefit is greater than the cost.  
 
  - When an xml message is received it is processed in realtime, and the response code will only return 200 if no error has occured an the message has been put on queue.
- - When an xml file is received, the sftp will give a success response when the file is uploaded, even if no processing is done yet. 
-
-
-
+ - When an xml file is received, the sftp will give a success response when the file is uploaded, even if no processing is done yet.
 
 
